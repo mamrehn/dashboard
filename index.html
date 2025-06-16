@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prüfungs-Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+    <style>
+        /* General Reset */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            /*font-size: 32px;*/
+        }
+
+        /* Body and Background Styling */
+        body {
+            font-family: 'Arial', sans-serif;
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            height: 100vh;
+            /* Prevent body from scrolling */
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Overlay for background effect */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.3);
+            z-index: 1;
+        }
+
+        /* Main Container for Dashboard Layout */
+        .container {
+            position: relative;
+            z-index: 2;
+            padding: 20px;
+            display: flex;
+            /* Use flexbox for a column layout */
+            flex-direction: column;
+            /* Occupy full viewport height */
+            height: 100vh;
+            gap: 10px;
+            /* Spacing between sections */
+            max-width: 90%;
+            width: 100%;
+            /* Center the container */
+            margin: 0 auto;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        /* Shared Card Styling */
+        .date-info,
+        .timer-section,
+        .additional-info {
+            background: rgba(255, 255, 255, 0.95);
+            /* Slightly transparent white background */
+            border-radius: 10px;
+            /* Rounded corners for individual cards */
+            padding: 15px 25px;
+            /* Padding inside cards */
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            /* Soft shadow */
+            backdrop-filter: blur(10px);
+            /* Frosted glass effect */
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            /* Subtle border */
+        }
+
+        /* Date and Time Info Section (ROW 1 - FIXED HEIGHT) */
+        .date-info {
+            /* This row will not grow or shrink; its height is based on its content. */
+            flex: 0 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            /* Allow wrapping on smaller screens */
+            gap: 10px;
+            /* Spacing between date and time elements */
+        }
+
+        .date-display {
+            font-size: 36px;
+            font-weight: bold;
+            color: #2c3e50;
+            /* Dark text color */
+        }
+
+        .time-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .time-label {
+            font-size: 30px;
+            /* Adjusted for better readability */
+            color: #7f8c8d;
+            /* Grey text */
+        }
+
+        .time-value {
+            font-size: 36px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .time-input {
+            font-size: 30px;
+            /* Match label font size */
+            padding: 5px 10px;
+            border: 2px solid #bdc3c7;
+            border-radius: 8px;
+            width: 120px;
+            /* Fixed width for time input */
+            text-align: center;
+        }
+
+        /* Timer Section (ROW 2 - FIXED HEIGHT) */
+        .timer-section {
+            /* This row will also not grow or shrink. */
+            flex: 0 0 auto;
+            display: flex;
+            /* Make it a flex container to arrange its children */
+            justify-content: space-around;
+            /* Distribute space between left and right panels */
+            align-items: center;
+            /* Vertically align items */
+            gap: 10px;
+            /* Space between the two panels */
+            padding: 15px 25px;
+            flex-wrap: wrap;
+            /* Allow panels to wrap on smaller screens */
+        }
+
+        .timer-left-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            /* Center content within left panel */
+            gap: 10px;
+            /* Space between label and controls */
+            flex-grow: 1;
+            /* Allow it to grow */
+            flex-basis: 45%;
+            /* Start with roughly half the width, leaving room for gap */
+            min-width: 200px;
+            /* Ensure it doesn't get too small */
+            text-align: center;
+            /* Center the label text */
+        }
+
+        .timer-right-panel {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-grow: 1;
+            /* Allow it to grow */
+            flex-basis: 45%;
+            /* Start with roughly half the width */
+            min-width: 200px;
+            /* Ensure it doesn't get too small */
+        }
+
+        .timer-label {
+            font-size: 36px;
+            color: #34495e;
+            font-weight: 600;
+        }
+
+        .timer-display {
+            font-size: 120px;
+            font-weight: bold;
+            color: #2c3e50;
+            font-family: 'Courier New', monospace;
+            /* Monospaced font for timer */
+            min-height: 1.2em;
+            /* Ensure consistent height for editable content */
+            border: 2px solid transparent;
+            /* Transparent border for editing */
+            /*padding: 5px 10px;*/
+            border-radius: 8px;
+            transition: border-color 0.3s ease;
+            cursor: pointer;
+        }
+
+        .timer-display:focus {
+            border-color: #5d6d7e;
+            /* Highlight border on focus */
+            outline: none;
+        }
+
+        /* Timer Controls (Buttons inside Timer Section) */
+        .timer-controls {
+            display: flex;
+            gap: 10px;
+            /* Spacing between buttons */
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            /* Allow buttons to wrap */
+        }
+
+        /* Button Icon Styling */
+        .btn span,
+        .btn-small span {
+            font-size: 1.5em;
+            /* Make symbol a bit larger than button text */
+            line-height: 1;
+            /* Ensure vertical centering */
+            color: inherit;
+            /* Inherit color from parent button */
+        }
+
+        /* Additional Information Section (ROW 3 - FILLS REMAINING SPACE) */
+        .additional-info {
+            /* This row will grow to fill all available vertical space. */
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+            /* Hide this container's overflow; the inner .info-display will scroll. */
+            overflow: hidden;
+        }
+
+        .info-display {
+            /* Takes remaining space inside its parent */
+            flex: 1;
+            /* Takes remaining space */
+            margin-bottom: 20px;
+            /* Enable scrolling for overflowing content */
+            overflow-y: auto;
+            /* Enable scrolling for overflowing content */
+            padding-right: 10px;
+            /* Padding for scrollbar */
+            /* height will be set by JS */
+        }
+
+        .info-item {
+            margin-bottom: 0.1em;
+            padding: 0.4em;
+            background: white;
+            border-radius: 8px;
+            border: 2px solid #e8e8e8;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            display: flex;
+            /* Use flexbox for "Aufgabe X)" and text */
+            align-items: baseline;
+            /* Align items to their baselines */
+            gap: 10px;
+            /* Space between label and text */
+        }
+
+        .info-question {
+            font-weight: bold;
+            color: #2c3e50;
+            flex-shrink: 0;
+            /* Prevent it from shrinking */
+        }
+
+        .info-question b {
+            font-weight: bold;
+            /* Ensure the number itself is bold */
+        }
+
+
+        .info-text {
+            color: #34495e;
+            line-height: 1.4;
+            /* Markdown rendering styles */
+            word-wrap: break-word;
+            /* Ensure long words wrap */
+            flex-grow: 1;
+            /* Allow text to take remaining space */
+        }
+
+        .info-text p,
+        .info-text ul,
+        .info-text ol,
+        .info-text h1,
+        .info-text h2,
+        .info-text h3 {
+            margin-bottom: 0em;
+        }
+
+        .info-text ul,
+        .info-text ol {
+            padding-left: 20px;
+        }
+
+        .info-input {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            /* Pushes this to the bottom of the flex container */
+            margin-top: auto;
+            /* Push input to the bottom of additional-info */
+        }
+
+        .info-input input,
+        .info-input textarea {
+            font-size: 24px;
+            /* Adjusted for better scale */
+            padding: 10px;
+            border: 2px solid #bdc3c7;
+            border-radius: 8px;
+            flex-grow: 1;
+            /* Allow inputs to grow */
+            height: 50px;
+            /* Fixed height for input and textarea */
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+            /* Subtle inset shadow */
+            transition: border-color 0.3s ease;
+        }
+
+        .info-input input:focus,
+        .info-input textarea:focus {
+            border-color: #5d6d7e;
+            /* Highlight on focus */
+            outline: none;
+        }
+
+        /* No need for separate input height, textarea inherits */
+
+        .info-input input:first-child {
+            width: 150px;
+            /* Fixed width for question number */
+            flex-grow: 0;
+            /* Prevent it from growing */
+        }
+
+        /* Buttons */
+        .btn,
+        .btn-small {
+            font-size: 24px;
+            /* Default button font size */
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            /* Slightly larger rounded corners */
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            /* Button shadow */
+            display: flex;
+            /* Use flexbox for icon/text alignment */
+            align-items: center;
+            justify-content: center;
+            /* Removed gap as there's only an icon */
+        }
+
+        .btn-primary {
+            background: #5d6d7e;
+            /* Primary color */
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #4a5a6a;
+            /* Darker on hover */
+            transform: translateY(-2px);
+            /* Slight lift effect */
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-success {
+            background: #5d8a66;
+            /* Success color */
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #4a6b52;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-warning {
+            background: #8a7c5d;
+            /* Warning color */
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #6b634a;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Small Buttons (for file controls) */
+        .btn-small {
+            font-size: 16px;
+            /* Smaller font size */
+            padding: 8px 16px;
+            /* Smaller padding */
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        /* File Controls at bottom right */
+        .file-controls {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 3;
+            /* Ensure it's above other content */
+        }
+
+        .file-input {
+            display: none;
+            /* Hide the default file input */
+        }
+
+        /* Animations */
+        /* Removed .running animation for timer-section as requested */
+        .warning {
+            color: #e74c3c !important;
+            /* Important to override other colors */
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+
+            0%,
+            50% {
+                opacity: 1;
+            }
+
+            51%,
+            100% {
+                opacity: 0.3;
+            }
+        }
+
+        /* Custom Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            /* Ensure it's on top of everything */
+        }
+
+        .modal-content {
+            background: rgba(255, 255, 255, 0.98);
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+            transform: scale(0.95);
+            animation: fadeInScale 0.3s forwards;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-title {
+            font-size: 32px;
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        .modal-message {
+            font-size: 24px;
+            color: #34495e;
+            line-height: 1.5;
+        }
+
+        .modal-content .btn-primary {
+            align-self: center;
+            margin-top: 10px;
+            padding: 10px 30px;
+            font-size: 24px;
+        }
+
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        /* Responsive Adjustments */
+        @media (max-width: 768px) {
+            .date-info {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .date-display,
+            .time-label,
+            .time-value {
+                font-size: 28px;
+                /* Smaller font sizes for mobile */
+            }
+
+            .time-input {
+                font-size: 24px;
+                width: 100px;
+            }
+
+            .timer-section {
+                flex-direction: column;
+                /* Stack panels vertically on smaller screens */
+                align-items: center;
+                justify-content: center;
+            }
+
+            .timer-left-panel,
+            .timer-right-panel {
+                flex-basis: 100%;
+                /* Full width for panels */
+                min-width: unset;
+                /* Remove min-width constraint */
+            }
+
+            .timer-display {
+                font-size: 80px;
+                /* Smaller timer font */
+            }
+
+            .timer-label {
+                font-size: 28px;
+            }
+
+            .btn {
+                font-size: 20px;
+                padding: 10px 20px;
+            }
+
+            .info-input input,
+            .info-input textarea {
+                font-size: 20px;
+                height: 40px;
+                /* Adjusted fixed height for smaller screens */
+            }
+
+            .info-question,
+            .info-text {
+                /* font-size: 20px !important; */
+                /* Adjusted font size dynamically */
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 10px;
+                gap: 10px;
+            }
+
+            .date-info,
+            .timer-section,
+            .additional-info {
+                padding: 15px;
+            }
+
+            .date-display,
+            .time-label,
+            .time-value {
+                font-size: 24px;
+            }
+
+            .time-input {
+                font-size: 20px;
+                width: 90px;
+            }
+
+            .timer-display {
+                font-size: 60px;
+            }
+
+            .timer-label {
+                font-size: 24px;
+            }
+
+            .btn {
+                font-size: 18px;
+                padding: 8px 16px;
+            }
+
+            .btn-small {
+                font-size: 14px;
+                padding: 6px 12px;
+            }
+
+            .info-input {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .info-input input:first-child,
+            .info-input input:nth-child(2) {
+                width: 100%;
+                /* Full width for inputs */
+            }
+
+            .file-controls {
+                bottom: 10px;
+                right: 10px;
+                gap: 5px;
+            }
+        }
+
+        input[type="time"]::-webkit-calendar-picker-indicator {
+            background: transparent;
+            bottom: 0;
+            color: transparent;
+            cursor: pointer;
+            height: auto;
+            left: 0;
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: auto
+        }
+    </style>
+</head>
+
+<body>
+    <div class="overlay"></div>
+    <div class="container">
+        <!-- Date and Time Info -->
+        <div class="date-info">
+            <div class="date-display" id="dateDisplay"></div>
+            <div class="time-info">
+                <div class="time-label">Ende Prüfung:</div>
+                <div class="time-value" id="examEndTime">--:--</div>
+            </div>
+            <div class="time-info">
+                <div class="time-label">Ende Pause:</div>
+                <input type="time" class="time-input" id="breakEndTime">
+            </div>
+        </div>
+
+        <!-- Timer Section -->
+        <div class="timer-section">
+            <div class="timer-left-panel">
+                <div class="timer-label">Verbleibende Minuten</div>
+                <div class="timer-controls">
+                    <button class="btn btn-success" id="startBtn" onclick="startTimer()">
+                        <i class="bi bi-play-fill"></i></button>
+                    <button class="btn btn-warning" id="pauseBtn" onclick="pauseTimer()" style="display: none;">
+                        <i class="bi bi-pause-fill"></i></button>
+                    <!--<button class="btn btn-primary" onclick="resetTimer()"><i class="bi bi-arrow-clockwise"></i></button>-->
+                </div>
+            </div>
+            <div class="timer-right-panel">
+                <div class="timer-display" id="timerDisplay" contenteditable="true" onclick="editTimer()">90</div>
+            </div>
+        </div>
+
+        <!-- Additional Information -->
+        <div class="additional-info">
+            <div class="info-display" id="infoDisplay"></div>
+            <div class="info-input">
+                <input type="text" id="questionNumber" placeholder="Aufg. Nr.">
+                <textarea id="questionText" placeholder="Information zur Aufgabe..." rows="2"></textarea>
+                <button class="btn btn-primary" onclick="addQuestionInfo()">Hinzufügen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- File Controls (moved to bottom right) -->
+    <div class="file-controls">
+        <button class="btn-small" onclick="exportData()"><i class="bi bi-arrow-bar-down"></i></button>
+        <button class="btn-small" onclick="document.getElementById('fileInput').click()"><i
+                class="bi bi-arrow-bar-up"></i></button>
+        <input type="file" id="fileInput" class="file-input" accept=".json" onchange="importData(event)">
+    </div>
+
+    <!-- Custom Modal for messages -->
+    <div id="customModal" class="modal-overlay" style="display:none;">
+        <div class="modal-content">
+            <h2 id="modalTitle" class="modal-title"></h2>
+            <p id="modalMessage" class="modal-message"></p>
+            <button class="btn btn-primary" onclick="hideMessage()">OK</button>
+        </div>
+    </div>
+
+    <script>
+        let timerInterval;
+        let totalSeconds = 0;
+        let remainingSeconds = 0;
+        let isRunning = false;
+        let isPaused = false;
+        let questionInfos = [];
+        let timerMinutes = 30; // Initial timer value in minutes
+        let examEndTimeString = ''; // To store the formatted exam end time for validation
+        let breakEndTimeManual = ''; // To store the manually set break end time
+        let resizeTimeout; // For debouncing window resize event
+
+
+        function textFill() {
+            const tf = document.querySelector('.textFill');
+            const parent = tf.parentElement;
+            let i = 1;
+
+            tf.style.fontSize = i + 'px';
+
+            while (true) {
+                tf.style.fontSize = i + 'px';
+                const scrollWidth = tf.scrollWidth;
+                const scrollHeight = tf.scrollHeight;
+                const clientWidth = tf.clientWidth;
+                const clientHeight = tf.clientHeight;
+
+                const parentHeight = parent.clientHeight;
+
+                if (scrollHeight > parentHeight || scrollWidth > clientWidth) {
+                    break;
+                }
+                i++;
+            }
+
+            tf.style.fontSize = (i - 1) + 'px';
+        }
+
+
+        /**
+         * Sets a random background image for the body.
+         * Requires 'images' folder with '1.pmg' through '10.png' images.
+         */
+        function setRandomBackground() {
+            const randomNum = Math.floor(Math.random() * 1) + 1;
+            // Note: For this to work, you need an 'images' folder with files named 1.jpg, 2.jpg, ..., 10.jpg
+            document.body.style.backgroundImage = `url('images/${randomNum}.png')`; // Placeholder for demo
+        }
+
+        /**
+         * Initializes the dashboard on load.
+         * Sets background, updates date, loads data from storage, and updates displays.
+         * Also sets up event listeners and initial layout adjustments.
+         */
+        function init() {
+            setRandomBackground();
+            parseUrlForTimer(); // Check URL hash for initial timer value
+            updateDateDisplay();
+            loadFromStorage(); // Load saved data (overrides URL if saved data has active timer state, otherwise URL sets initial value)
+            updateInfoDisplay(); // This will also call adjustInfoDisplayFontSize() internally
+            updateTimerDisplay(); // Ensure timer display shows initial value
+            document.getElementById('breakEndTime').addEventListener('change', validateBreakEndTime);
+
+            // Initial layout adjustments
+            adjustLayout();
+
+            // Event listener for window resize, debounced
+            window.addEventListener('resize', () => {
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(adjustLayout, 200); // Debounce by 200ms
+            });
+        }
+
+        /**
+         * Adjusts the height of the info-display and its font size to fit the screen.
+         */
+        function adjustLayout() {
+            adjustInfoDisplayHeight();
+            // Call updateInfoDisplay to re-render with adjusted font size
+            updateInfoDisplay();
+        }
+
+        /**
+         * Parses the URL hash for a 't' parameter to set the initial timer minutes.
+         * Example: #t=13 sets timer to 13 minutes.
+         */
+        function parseUrlForTimer() {
+            const hash = window.location.hash;
+            const match = hash.match(/#t=(\d+)/);
+            if (match && match[1]) {
+                const timeFromUrl = parseInt(match[1]);
+                // Validate time: must be a number, greater than 0, and within a reasonable range (e.g., up to 300 minutes)
+                if (!isNaN(timeFromUrl) && timeFromUrl > 0 && timeFromUrl <= 300) {
+                    timerMinutes = timeFromUrl;
+                    // Also reset remaining seconds if a new URL timer is set
+                    remainingSeconds = timerMinutes * 60;
+                    totalSeconds = timerMinutes * 60;
+                }
+            }
+        }
+
+        /**
+         * Allows editing of the timer display when clicked.
+         * Selects the text for easy modification.
+         */
+        function editTimer() {
+            if (!isRunning) {
+                const display = document.getElementById('timerDisplay');
+                display.focus();
+
+                // Select all text in the contenteditable div
+                const range = document.createRange();
+                range.selectNodeContents(display);
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+            }
+        }
+
+        /**
+         * Event listener for the timerDisplay element.
+         * Updates `timerMinutes` when the user finishes editing (blurs) the display.
+         * Ensures only numbers are entered.
+         */
+        document.addEventListener('DOMContentLoaded', function () {
+            const timerDisplay = document.getElementById('timerDisplay');
+
+            timerDisplay.addEventListener('blur', function () {
+                const oldTimerMinutes = timerMinutes; // Capture old value before updating
+                const value = parseInt(this.textContent) || 90;
+                timerMinutes = Math.max(1, Math.min(300, value));
+                this.textContent = timerMinutes; // Update display to clean value
+
+                // Calculate difference in seconds
+                const minuteDifferenceInSeconds = (timerMinutes - oldTimerMinutes) * 60;
+
+                // Adjust remaining seconds only if timer was active
+                if (isRunning || isPaused) {
+                    remainingSeconds += minuteDifferenceInSeconds;
+                    if (remainingSeconds < 0) remainingSeconds = 0; // Prevent negative time
+                    updateTimerDisplay(); // Immediately reflect new time
+                    updateEndTimes(); // Adjust end times
+                } else {
+                    // If not running/paused, just update totalSeconds for next start
+                    totalSeconds = timerMinutes * 60;
+                    remainingSeconds = totalSeconds;
+                    updateTimerDisplay(); // Make sure initial display is correct (e.g., after loading)
+                }
+                saveToStorage(); // Save the new timerMinutes and state
+            });
+
+            timerDisplay.addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') {
+                    this.blur(); // Trigger blur to save changes on Enter key
+                }
+                // Allow only numeric input, plus Backspace, Delete, Arrow keys
+                if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') {
+                    e.preventDefault(); // Prevent non-numeric input
+                }
+            });
+        });
+
+        /**
+         * Updates the current date display (without year).
+         */
+        function updateDateDisplay() {
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('de-DE', {
+                day: '2-digit',
+                month: '2-digit'
+            });
+            document.getElementById('dateDisplay').textContent = dateStr;
+        }
+
+        /**
+         * Starts the timer countdown.
+         */
+        function startTimer() {
+            if (!isRunning && !isPaused) {
+                totalSeconds = timerMinutes * 60;
+                remainingSeconds = totalSeconds;
+                updateEndTimes(); // Calculate and display exam end time, update break end time if needed
+            }
+
+            isRunning = true;
+            isPaused = false;
+
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('pauseBtn').style.display = 'inline-block';
+
+            timerInterval = setInterval(() => {
+                if (remainingSeconds > 0) {
+                    remainingSeconds--;
+                    updateTimerDisplay();
+                } else {
+                    timerEnded(); // Timer finished
+                }
+            }, 1000);
+
+            saveToStorage(); // Save state when timer starts
+        }
+
+        /**
+         * Pauses the running timer.
+         */
+        function pauseTimer() {
+            if (isRunning) {
+                clearInterval(timerInterval); // Stop the interval
+                isRunning = false;
+                isPaused = true;
+
+                document.getElementById('startBtn').style.display = 'inline-block';
+                document.getElementById('pauseBtn').style.display = 'none';
+
+                saveToStorage(); // Save state when timer pauses
+            }
+        }
+
+        /**
+         * Resets the timer to its initial `timerMinutes` value.
+         */
+        function resetTimer() {
+            clearInterval(timerInterval); // Stop any running interval
+            isRunning = false;
+            isPaused = false;
+
+            totalSeconds = timerMinutes * 60;
+            remainingSeconds = totalSeconds;
+            updateTimerDisplay(); // Update display to reflect reset
+
+            document.getElementById('startBtn').style.display = 'inline-block';
+            document.getElementById('pauseBtn').style.display = 'none';
+
+            document.getElementById('timerDisplay').classList.remove('warning');
+
+            clearEndTimes(); // Clear displayed end times
+            saveToStorage(); // Save state after reset
+        }
+
+        /**
+         * Updates the timer display based on `remainingSeconds`.
+         * Shows "MM:SS" for last 3 minutes, otherwise just minutes.
+         */
+        function updateTimerDisplay() {
+            const display = document.getElementById('timerDisplay');
+
+            if (isRunning || isPaused) {
+                const minutes = Math.floor(remainingSeconds / 60);
+                const seconds = remainingSeconds % 60;
+
+                if (remainingSeconds <= 180) { // 3 minutes (180 seconds) or less
+                    display.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                    if (remainingSeconds <= 60) {
+                        display.classList.add('warning');
+                    } else {
+                        display.classList.remove('warning');
+                    }
+                } else {
+                    display.textContent = `${minutes}`; // Display only minutes, no "Min"
+                    display.classList.remove('warning');
+                }
+            } else {
+                display.textContent = timerMinutes;
+                display.classList.remove('warning');
+            }
+        }
+
+        /**
+         * Calculates and updates the exam end time.
+         * Also suggests an initial break end time if not manually set.
+         */
+        function updateEndTimes() {
+            const now = new Date();
+            const examEnd = new Date(now.getTime() + remainingSeconds * 1000);
+
+            examEndTimeString = examEnd.toLocaleTimeString('de-DE', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hourCycle: 'h23'
+            });
+            document.getElementById('examEndTime').textContent = examEndTimeString;
+
+            if (!breakEndTimeManual || isRunning || isPaused) { // Only auto-suggest if not manually set or timer is active
+                const suggestedBreakEnd = new Date(examEnd.getTime() + 5 * 60 * 1000);
+                document.getElementById('breakEndTime').value = suggestedBreakEnd.toLocaleTimeString('de-DE', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hourCycle: 'h23'
+                });
+                breakEndTimeManual = document.getElementById('breakEndTime').value;
+            }
+        }
+
+        /**
+         * Validates the manually entered break end time.
+         */
+        function validateBreakEndTime() {
+            const breakTimeInput = document.getElementById('breakEndTime');
+            const newBreakTimeString = breakTimeInput.value;
+
+            if (newBreakTimeString) {
+                const [breakHour, breakMinute] = newBreakTimeString.split(':').map(Number);
+                const [examHour, examMinute] = examEndTimeString.split(':').map(Number);
+
+                const now = new Date();
+                const breakDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), breakHour, breakMinute);
+                const examEndDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), examHour, examMinute);
+
+                // Ensure break time is strictly after exam end time (add 1 second buffer)
+                if (!examEndTimeString || breakDate.getTime() > (examEndDate.getTime() + 1000)) {
+                    breakEndTimeManual = newBreakTimeString;
+                    saveToStorage();
+                } else {
+                    showMessage('Ungültige Zeit', 'Die Pause Ende Zeit muss nach der Prüfungsende Zeit liegen.');
+                    breakTimeInput.value = breakEndTimeManual; // Revert to last valid time
+                }
+            } else {
+                breakEndTimeManual = '';
+                saveToStorage();
+            }
+        }
+
+        /**
+         * Clears the displayed exam and break end times.
+         */
+        function clearEndTimes() {
+            document.getElementById('examEndTime').textContent = '--:--';
+            document.getElementById('breakEndTime').value = '';
+            examEndTimeString = '';
+            breakEndTimeManual = '';
+        }
+
+        /**
+         * Handles actions when the timer reaches zero.
+         */
+        function timerEnded() {
+            clearInterval(timerInterval);
+            isRunning = false;
+            isPaused = false;
+
+            document.getElementById('startBtn').style.display = 'inline-block';
+            document.getElementById('pauseBtn').style.display = 'none';
+
+            document.getElementById('timerDisplay').classList.remove('warning');
+
+            playEndSound();
+            showMessage('Zeit abgelaufen!', 'Die Prüfungszeit ist beendet. Gut gemacht!');
+            clearEndTimes();
+            saveToStorage();
+        }
+
+        /**
+         * Plays a cheerful sound using the Web Audio API.
+         */
+        function playEndSound() {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+            const frequencies = [523.25, 659.25, 783.99]; // C5, E5, G5 (C major chord)
+
+            frequencies.forEach((freq, index) => {
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                oscillator.frequency.setValueAtTime(freq, audioContext.currentTime);
+                oscillator.type = 'sine';
+
+                gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.1);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.8);
+
+                oscillator.start(audioContext.currentTime + index * 0.15);
+                oscillator.stop(audioContext.currentTime + index * 0.15 + 0.8);
+            });
+        }
+
+        /**
+         * Adds a new question information entry or updates an existing one.
+         */
+        function addQuestionInfo() {
+            const questionNumber = document.getElementById('questionNumber').value.trim();
+            const questionText = document.getElementById('questionText').value.trim();
+
+            if (questionNumber && questionText) {
+                questionInfos = questionInfos.filter(info => info.number !== questionNumber);
+                questionInfos.push({
+                    number: questionNumber,
+                    text: questionText // Store raw markdown
+                });
+
+                questionInfos.sort((a, b) => {
+                    const aNum = parseFloat(a.number.replace(/[^\d.]/g, '')) || 0;
+                    const bNum = parseFloat(b.number.replace(/[^\d.]/g, '')) || 0;
+                    return aNum - bNum;
+                });
+
+                updateInfoDisplay(); // Refresh the display and adjust font size
+                saveToStorage();
+
+                document.getElementById('questionNumber').value = '';
+                document.getElementById('questionText').value = '';
+            }
+        }
+
+        /**
+         * Updates the display area for additional question information.
+         * Applies Markdown rendering and dynamically adjusts font size.
+         */
+        function updateInfoDisplay() {
+            const display = document.getElementById('infoDisplay');
+
+            if (questionInfos.length === 0) {
+                display.innerHTML = '<div style="font-size: 30px; color: #7f8c8d; text-align: center; padding: 40px;">Keine zusätzlichen Informationen vorhanden</div>';
+                // Reset font size if no content
+                display.querySelectorAll('.info-question, .info-text').forEach(el => el.style.fontSize = '');
+                return;
+            }
+
+            // Render content with new "Aufg. X)" format
+            display.innerHTML = questionInfos.map(info => `
+                <div class="info-item">
+                    <div class="info-question">Aufg. <b>${info.number}</b>)</div>
+                    <div class="info-text">${marked.parse(info.text)}</div>
+                </div>
+            `).join('');
+
+            // Adjust font size after content is rendered and height is set
+            adjustInfoDisplayFontSize();
+        }
+
+        /**
+         * Adjusts the height of the info-display to fit available screen space.
+         */
+        function adjustInfoDisplayHeight() {
+            const dateInfo = document.querySelector('.date-info');
+            const timerSection = document.querySelector('.timer-section');
+            const additionalInfo = document.querySelector('.additional-info'); // Parent of info-display
+            const infoInput = document.querySelector('.info-input');
+            const fileControls = document.querySelector('.file-controls');
+            const container = document.querySelector('.container');
+
+            // Calculate heights of fixed/known elements
+            const dateInfoHeight = dateInfo ? dateInfo.offsetHeight : 0;
+            const timerSectionHeight = timerSection ? timerSection.offsetHeight : 0;
+            const infoInputHeight = infoInput ? infoInput.offsetHeight : 0;
+            const fileControlsHeight = fileControls ? fileControls.offsetHeight : 0;
+
+            // Get the computed style of the body and container to account for padding
+            const bodyStyle = getComputedStyle(document.body);
+            const containerStyle = getComputedStyle(container);
+
+            const bodyPaddingTop = parseFloat(bodyStyle.paddingTop);
+            const bodyPaddingBottom = parseFloat(bodyStyle.paddingBottom);
+            const containerPaddingTop = parseFloat(containerStyle.paddingTop);
+            const containerPaddingBottom = parseFloat(containerStyle.paddingBottom);
+
+            // Gaps between grid items are 20px
+            const gridGaps = 20 * 2; // Gap between date-info and timer-section, and timer-section and additional-info
+
+            const totalFixedHeight = dateInfoHeight + timerSectionHeight + infoInputHeight + fileControlsHeight +
+                bodyPaddingTop + bodyPaddingBottom +
+                containerPaddingTop + containerPaddingBottom +
+                gridGaps;
+
+            let availableHeight = window.innerHeight - totalFixedHeight;
+
+            // Ensure a minimum height for usability (e.g., 100px)
+            if (availableHeight < 100) {
+                availableHeight = 100;
+            }
+
+            // Apply height to the info-display (the scrollable content area)
+            document.getElementById('infoDisplay').style.height = `${availableHeight}px`;
+        }
+
+        /**
+         * Dynamically adjusts the font size of content within info-display to fit.
+         */
+        function adjustInfoDisplayFontSize() {
+            const infoDisplay = document.getElementById('infoDisplay');
+            const infoItems = infoDisplay.querySelectorAll('.info-item');
+            if (infoItems.length === 0) return;
+
+            // Create a temporary div to measure content without affecting the visible layout
+            const tempDiv = document.createElement('div');
+            tempDiv.style.visibility = 'hidden';
+            tempDiv.style.position = 'absolute';
+            tempDiv.style.left = '-9999px';
+            tempDiv.style.top = '-9999px';
+            tempDiv.style.width = infoDisplay.clientWidth + 'px'; // Match width for accurate text wrapping
+            tempDiv.style.height = 'auto'; // Auto height for content measurement
+            tempDiv.style.overflow = 'hidden';
+            document.body.appendChild(tempDiv);
+
+            let minFontSize = 1; // Minimum readable font size
+            let maxFontSize = 40; // Maximum desired font size for info-text
+            let bestFitSize = minFontSize;
+
+            let low = minFontSize;
+            let high = maxFontSize;
+
+            // Binary search to find the largest font size that fits
+            while (low <= high) {
+                let mid = Math.floor((low + high) / 2) | 0;
+
+                tempDiv.innerHTML = ''; // Clear content for new measurement
+                infoItems.forEach(item => {
+                    const clonedItem = item.cloneNode(true);
+                    // Apply trial font sizes
+                    clonedItem.querySelector('.info-question').style.fontSize = `${mid}px`;
+                    clonedItem.querySelector('.info-text').style.fontSize = `${mid}px`;
+                    tempDiv.appendChild(clonedItem);
+                });
+
+                // Check if the content fits within the infoDisplay's clientHeight
+                // clientHeight is the inner height of the element, excluding padding and border
+                if (tempDiv.scrollHeight <= infoDisplay.clientHeight) {
+                    bestFitSize = mid; // This size fits, try a larger one
+                    low = mid + 1;
+                } else {
+                    high = mid - 1; // This size overflows, try a smaller one
+                }
+            }
+
+            // Apply the best fit font size to the actual elements
+            infoItems.forEach(item => {
+                item.querySelector('.info-question').style.fontSize = `${bestFitSize}px`;
+                item.querySelector('.info-text').style.fontSize = `${bestFitSize}px`;
+            });
+
+            document.body.removeChild(tempDiv); // Clean up the temporary div
+        }
+
+
+        /**
+         * Saves the current application state to a global variable (for demo purposes).
+         */
+        function saveToStorage() {
+            const data = {
+                questionInfos: questionInfos,
+                timerMinutes: timerMinutes,
+                remainingSeconds: remainingSeconds,
+                isRunning: isRunning,
+                isPaused: isPaused,
+                breakEndTimeManual: breakEndTimeManual,
+                examEndTimeString: examEndTimeString
+            };
+            window.savedData = data;
+        }
+
+        /**
+         * Loads the application state from a global variable (for demo purposes).
+         * Prioritizes URL hash for initial timer setting if present.
+         */
+        function loadFromStorage() {
+            const data = window.savedData;
+            if (data) {
+                questionInfos = data.questionInfos || [];
+
+                // Only load timerMinutes from storage if URL param was NOT set,
+                // OR if URL param was set but the stored state implies an active timer
+                // (meaning the user started/paused it, overriding initial URL param).
+                const urlTimerSet = window.location.hash.indexOf('#t=') !== -1;
+                if (!urlTimerSet || (data.isRunning || data.isPaused)) {
+                    timerMinutes = data.timerMinutes !== undefined ? data.timerMinutes : 90;
+                    remainingSeconds = data.remainingSeconds !== undefined ? data.remainingSeconds : timerMinutes * 60;
+                    isRunning = data.isRunning || false;
+                    isPaused = data.isPaused || false;
+                }
+                // If URL timer was set and no active stored timer, use URL timer value.
+                // This is handled by parseUrlForTimer() which runs before loadFromStorage().
+
+                breakEndTimeManual = data.breakEndTimeManual || '';
+                examEndTimeString = data.examEndTimeString || '';
+
+                document.getElementById('breakEndTime').value = breakEndTimeManual;
+                document.getElementById('examEndTime').textContent = examEndTimeString || '--:--';
+
+                if (isRunning) {
+                    startTimer();
+                } else if (isPaused) {
+                    updateTimerDisplay();
+                    document.getElementById('startBtn').style.display = 'inline-block';
+                    document.getElementById('pauseBtn').style.display = 'none';
+                } else {
+                    updateTimerDisplay();
+                }
+                // updateInfoDisplay() is called by init() later, which then calls adjustInfoDisplayFontSize()
+            }
+        }
+
+        /**
+         * Exports the current application data as a JSON file.
+         */
+        function exportData() {
+            const data = {
+                questionInfos: questionInfos,
+                timerMinutes: timerMinutes,
+                remainingSeconds: remainingSeconds,
+                isRunning: isRunning,
+                isPaused: isPaused,
+                breakEndTimeManual: breakEndTimeManual,
+                examEndTimeString: examEndTimeString,
+                exportDate: new Date().toISOString()
+            };
+
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `exam-dashboard-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        /**
+         * Imports data from a selected JSON file, updating the dashboard state.
+         */
+        function importData(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        if (data.questionInfos) {
+                            questionInfos = data.questionInfos;
+                        }
+
+                        if (data.timerMinutes !== undefined) {
+                            timerMinutes = data.timerMinutes;
+                            remainingSeconds = data.remainingSeconds !== undefined ? data.remainingSeconds : data.timerMinutes * 60;
+                            isRunning = data.isRunning || false;
+                            isPaused = data.isPaused || false;
+                            breakEndTimeManual = data.breakEndTimeManual || '';
+                            examEndTimeString = data.examEndTimeString || '';
+
+                            document.getElementById('breakEndTime').value = breakEndTimeManual;
+                            document.getElementById('examEndTime').textContent = examEndTimeString || '--:--';
+
+                            clearInterval(timerInterval); // Stop current timer
+
+                            if (isRunning) {
+                                startTimer();
+                            } else if (isPaused) {
+                                updateTimerDisplay();
+                                document.getElementById('startBtn').style.display = 'inline-block';
+                                document.getElementById('pauseBtn').style.display = 'none';
+                            } else {
+                                updateTimerDisplay();
+                                document.getElementById('startBtn').style.display = 'inline-block';
+                                document.getElementById('pauseBtn').style.display = 'none';
+                            }
+                        }
+                        saveToStorage();
+                        updateInfoDisplay(); // Refresh info display (calls font size adjustment)
+                        showMessage('Import Erfolgreich', 'Die Daten wurden erfolgreich importiert.');
+                    } catch (error) {
+                        showMessage('Import Fehler', 'Fehler beim Importieren der Datei: ' + error.message);
+                    }
+                };
+                reader.readAsText(file);
+            }
+        }
+
+        document.getElementById('questionText').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter' && !e.shiftKey) { // Allow Shift+Enter for new lines in textarea
+                e.preventDefault(); // Prevent default new line behavior for Enter
+                addQuestionInfo();
+            }
+        });
+
+        window.addEventListener('load', init);
+
+        function showMessage(title, message) {
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalMessage').textContent = message;
+            document.getElementById('customModal').style.display = 'flex';
+        }
+
+        function hideMessage() {
+            document.getElementById('customModal').style.display = 'none';
+        }
+    </script>
+</body>
+
+</html>
