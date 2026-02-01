@@ -880,12 +880,12 @@
 
         /**
          * Sets a random background image for the body.
-         * Requires 'images' folder with '1.pmg' through '10.png' images.
+         * Requires 'images' folder with '0.jpg' through '19.jpg' images.
          */
         function setRandomBackground() {
-            const randomNum = Math.floor(Math.random() * 1) + 1;
-            // Note: For this to work, you need an 'images' folder with files named 1.jpg, 2.jpg, ..., 10.jpg
-            document.body.style.backgroundImage = `url('images/${randomNum}.png')`; // Placeholder for demo
+        const randomNum = Math.floor(Math.random() * 20);
+            // Note: For this to work, you need an 'images' folder with files named 0.jpg, 1.jpg, ..., 19.jpg
+            document.body.style.backgroundImage = `url('images/${randomNum}.jpg')`;
         }
 
         /**
