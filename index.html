@@ -229,45 +229,18 @@
             /* This row will also not grow or shrink. */
             flex: 0 0 auto;
             display: flex;
-            /* Make it a flex container to arrange its children */
-            justify-content: space-around;
-            /* Distribute space between left and right panels */
-            align-items: center;
-            /* Vertically align items */
-            gap: var(--space-3);
-            /* Space between the two panels */
-            padding: var(--space-4) var(--space-6);
-            flex-wrap: wrap;
-            /* Allow panels to wrap on smaller screens */
-        }
-
-        .timer-left-panel {
-            display: flex;
             flex-direction: column;
             align-items: center;
-            /* Center content within left panel */
             gap: var(--space-3);
-            /* Space between label and controls */
-            flex-grow: 1;
-            /* Allow it to grow */
-            flex-basis: 45%;
-            /* Start with roughly half the width, leaving room for gap */
-            min-width: 200px;
-            /* Ensure it doesn't get too small */
-            text-align: center;
-            /* Center the label text */
+            padding: var(--space-4) var(--space-6);
         }
 
-        .timer-right-panel {
+        .timer-row {
             display: flex;
-            justify-content: center;
             align-items: center;
-            flex-grow: 1;
-            /* Allow it to grow */
-            flex-basis: 45%;
-            /* Start with roughly half the width */
-            min-width: 200px;
-            /* Ensure it doesn't get too small */
+            justify-content: center;
+            gap: var(--space-8);
+            flex-wrap: wrap;
         }
 
         .timer-label {
@@ -283,11 +256,9 @@
             color: var(--color-dashboard-text);
             font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
             /* Monospaced font for timer */
-            min-height: 1.2em;
-            /* Ensure consistent height for editable content */
+            line-height: 1;
             border: 2px solid transparent;
             /* Transparent border for editing */
-            /*padding: 5px 10px;*/
             border-radius: var(--radius);
             transition: border-color var(--transition-fast);
             cursor: pointer;
@@ -310,7 +281,7 @@
         }
 
         .progress-label {
-            font-size: 20px;
+            font-size: 30px;
             font-weight: var(--font-weight-medium);
             color: var(--color-dashboard-text-muted);
         }
@@ -619,6 +590,7 @@
             bottom: var(--space-5);
             right: var(--space-5);
             display: flex;
+            flex-direction: column;
             gap: var(--space-3);
             z-index: 3;
             /* Ensure it's above other content */
@@ -733,19 +705,9 @@
                 width: 100px;
             }
 
-            .timer-section {
-                flex-direction: column;
-                /* Stack panels vertically on smaller screens */
-                align-items: center;
+            .timer-row {
+                flex-wrap: wrap;
                 justify-content: center;
-            }
-
-            .timer-left-panel,
-            .timer-right-panel {
-                flex-basis: 100%;
-                /* Full width for panels */
-                min-width: unset;
-                /* Remove min-width constraint */
             }
 
             .timer-display {
@@ -775,7 +737,7 @@
             }
 
             .progress-label {
-                font-size: 16px;
+                font-size: 30px;
             }
 
             .progress-tile {
@@ -843,7 +805,7 @@
             }
 
             .progress-label {
-                font-size: 14px;
+                font-size: 30px;
             }
 
             .progress-tile {
@@ -885,20 +847,15 @@
 
         <!-- Timer Section -->
         <div class="timer-section">
-            <div class="timer-left-panel">
+            <div class="timer-row">
+                <button class="btn btn-success" id="startBtn" onclick="startTimer()">
+                    <i class="bi bi-play-fill"></i></button>
                 <div class="timer-label">Verbleibende Minuten</div>
-                <div class="timer-controls">
-                    <button class="btn btn-success" id="startBtn" onclick="startTimer()">
-                        <i class="bi bi-play-fill"></i></button>
-                    <!--<button class="btn btn-primary" onclick="resetTimer()"><i class="bi bi-arrow-clockwise"></i></button>-->
-                </div>
+                <div class="timer-display" id="timerDisplay" contenteditable="true" onclick="editTimer()">90</div>
             </div>
             <div class="progress-bar-container" id="progressBarContainer">
                 <div class="progress-label" id="progressLabel"></div>
                 <div class="progress-bar" id="progressBar"></div>
-            </div>
-            <div class="timer-right-panel">
-                <div class="timer-display" id="timerDisplay" contenteditable="true" onclick="editTimer()">90</div>
             </div>
         </div>
 
@@ -1499,7 +1456,12 @@
                     if (i < expectedQuestion) {
                         tile.classList.add('completed');
                     } else if (i === expectedQuestion) {
-                        tile.classList.add('current');
+                        // If time is fully elapsed, mark as completed instead of current
+                        if (remainingSeconds === 0) {
+                            tile.classList.add('completed');
+                        } else {
+                            tile.classList.add('current');
+                        }
                     }
                 }
                 bar.appendChild(tile);
