@@ -300,44 +300,33 @@
             background: rgba(255, 255, 255, 0.8);
         }
 
-        /* Question count input */
-        .question-count-input {
-            display: flex;
-            align-items: center;
-            gap: var(--space-2);
-            font-size: var(--font-size-sm);
-            color: var(--color-text-muted);
-        }
-
-        .question-count-input label {
-            font-weight: var(--font-weight-medium);
-        }
-
-        .question-count-input input {
-            width: 60px;
-            padding: var(--space-1) var(--space-2);
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-sm);
-            text-align: center;
-            font-size: var(--font-size-sm);
-            font-family: var(--font-family);
-        }
-
         /* Progress Bar */
         .progress-bar-container {
             width: 100%;
-            flex-basis: 100%;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: var(--space-2);
-            padding-top: var(--space-2);
+            gap: var(--space-1);
         }
 
         .progress-label {
-            font-size: 24px;
-            font-weight: var(--font-weight-semibold);
-            color: var(--color-dashboard-text);
+            font-size: 20px;
+            font-weight: var(--font-weight-medium);
+            color: var(--color-dashboard-text-muted);
+        }
+
+        .progress-total {
+            cursor: pointer;
+            border-bottom: 1px dashed var(--color-text-muted);
+            min-width: 1.5em;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .progress-total:focus {
+            outline: none;
+            border-bottom-color: var(--color-primary-500);
+            border-bottom-style: solid;
         }
 
         .progress-bar {
@@ -786,12 +775,12 @@
             }
 
             .progress-label {
-                font-size: 18px;
+                font-size: 16px;
             }
 
             .progress-tile {
-                height: 16px;
-                min-width: 10px;
+                height: 14px;
+                min-width: 8px;
             }
         }
 
@@ -854,12 +843,12 @@
             }
 
             .progress-label {
-                font-size: 16px;
+                font-size: 14px;
             }
 
             .progress-tile {
-                height: 12px;
-                min-width: 8px;
+                height: 10px;
+                min-width: 6px;
             }
         }
 
@@ -903,18 +892,13 @@
                         <i class="bi bi-play-fill"></i></button>
                     <!--<button class="btn btn-primary" onclick="resetTimer()"><i class="bi bi-arrow-clockwise"></i></button>-->
                 </div>
-                <div class="question-count-input">
-                    <label for="questionCountInput">Aufgaben:</label>
-                    <input type="number" id="questionCountInput" min="0" max="200" value=""
-                           placeholder="0" onchange="setQuestionCount(this.value)">
-                </div>
+            </div>
+            <div class="progress-bar-container" id="progressBarContainer">
+                <div class="progress-label" id="progressLabel"></div>
+                <div class="progress-bar" id="progressBar"></div>
             </div>
             <div class="timer-right-panel">
                 <div class="timer-display" id="timerDisplay" contenteditable="true" onclick="editTimer()">90</div>
-            </div>
-            <div class="progress-bar-container" id="progressBarContainer" style="display: none;">
-                <div class="progress-label" id="progressLabel"></div>
-                <div class="progress-bar" id="progressBar"></div>
             </div>
         </div>
 
@@ -989,7 +973,6 @@
             updateInfoDisplay();
             updateTimerDisplay();
             updateProgressBar();
-            document.getElementById('questionCountInput').value = totalQuestions || '';
             document.getElementById('breakEndTime').addEventListener('change', validateBreakEndTime);
 
             adjustLayout();
@@ -1463,7 +1446,6 @@
          */
         function setQuestionCount(value) {
             totalQuestions = Math.max(0, Math.min(200, parseInt(value) || 0));
-            document.getElementById('questionCountInput').value = totalQuestions || '';
             updateProgressBar();
             saveToStorage();
         }
@@ -1476,24 +1458,38 @@
             const bar = document.getElementById('progressBar');
             const label = document.getElementById('progressLabel');
 
-            if (!totalQuestions || totalQuestions <= 0) {
-                container.style.display = 'none';
-                return;
-            }
-
             container.style.display = 'flex';
 
             let expectedQuestion = 0;
-            if (isRunning && totalSeconds > 0) {
+            if (isRunning && totalSeconds > 0 && totalQuestions > 0) {
                 const elapsedSeconds = totalSeconds - remainingSeconds;
                 expectedQuestion = Math.ceil((elapsedSeconds / totalSeconds) * totalQuestions);
                 expectedQuestion = Math.max(1, Math.min(totalQuestions, expectedQuestion));
                 if (elapsedSeconds === 0) expectedQuestion = 1;
             }
 
-            label.textContent = isRunning
-                ? `Aufgabe ${expectedQuestion} / ${totalQuestions}`
-                : `${totalQuestions} Aufgaben`;
+            // Build label with editable total
+            const totalSpan = `<span class="progress-total" contenteditable="true" id="progressTotal">${totalQuestions}</span>`;
+            label.innerHTML = isRunning
+                ? `Aufgabe ${expectedQuestion} / ${totalSpan}`
+                : `${totalSpan} Aufgaben`;
+
+            // Add event listener for editing the total
+            const totalEl = document.getElementById('progressTotal');
+            if (totalEl) {
+                totalEl.addEventListener('blur', function() {
+                    const newVal = parseInt(this.textContent) || 0;
+                    if (newVal !== totalQuestions) {
+                        setQuestionCount(newVal);
+                    }
+                });
+                totalEl.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        this.blur();
+                    }
+                });
+            }
 
             bar.innerHTML = '';
             for (let i = 1; i <= totalQuestions; i++) {
@@ -1547,7 +1543,6 @@
             document.getElementById('timerDisplay').classList.remove('warning');
             document.getElementById('examEndTime').textContent = '--:--';
             document.getElementById('breakEndTime').value = '';
-            document.getElementById('questionCountInput').value = '';
 
             parseUrlForTimer();
 
@@ -1679,7 +1674,6 @@
 
                             document.getElementById('breakEndTime').value = breakEndTimeManual;
                             document.getElementById('examEndTime').textContent = examEndTimeString || '--:--';
-                            document.getElementById('questionCountInput').value = totalQuestions || '';
 
                             clearInterval(timerInterval);
 
