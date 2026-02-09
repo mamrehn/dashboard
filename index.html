@@ -957,28 +957,50 @@
         }
 
         /**
-         * Parses the URL hash for 't' (timer minutes) and 'q' (question count) parameters.
-         * Example: #t=90&q=10 or #t=90,q=10
+         * Parses the URL for 't' (timer minutes) and 'q' (question count) parameters.
+         * Supports both GET query parameters (?t=90&q=10) and hash parameters (#t=90&q=10).
+         * GET parameters take priority over hash parameters.
          */
         function parseUrlForTimer() {
             const hash = window.location.hash;
+            const urlParams = new URLSearchParams(window.location.search);
 
-            const timeMatch = hash.match(/[#&,]t=(\d+)/);
-            if (timeMatch && timeMatch[1]) {
-                const timeFromUrl = parseInt(timeMatch[1]);
-                if (!isNaN(timeFromUrl) && timeFromUrl > 0 && timeFromUrl <= 300) {
-                    timerMinutes = timeFromUrl;
-                    remainingSeconds = timerMinutes * 60;
-                    totalSeconds = timerMinutes * 60;
+            // Check GET parameters first, then fall back to hash
+            let timeFromUrl = null;
+            let qFromUrl = null;
+
+            // GET parameters (priority)
+            if (urlParams.has('t')) {
+                timeFromUrl = parseInt(urlParams.get('t'));
+            }
+            if (urlParams.has('q')) {
+                qFromUrl = parseInt(urlParams.get('q'));
+            }
+
+            // Hash parameters (fallback)
+            if (timeFromUrl === null) {
+                const timeMatch = hash.match(/[#&,]t=(\d+)/);
+                if (timeMatch && timeMatch[1]) {
+                    timeFromUrl = parseInt(timeMatch[1]);
+                }
+            }
+            if (qFromUrl === null) {
+                const qMatch = hash.match(/[#&,]q=(\d+)/);
+                if (qMatch && qMatch[1]) {
+                    qFromUrl = parseInt(qMatch[1]);
                 }
             }
 
-            const qMatch = hash.match(/[#&,]q=(\d+)/);
-            if (qMatch && qMatch[1]) {
-                const qFromUrl = parseInt(qMatch[1]);
-                if (!isNaN(qFromUrl) && qFromUrl > 0 && qFromUrl <= 200) {
-                    totalQuestions = qFromUrl;
-                }
+            // Apply timer value
+            if (timeFromUrl !== null && !isNaN(timeFromUrl) && timeFromUrl > 0 && timeFromUrl <= 300) {
+                timerMinutes = timeFromUrl;
+                remainingSeconds = timerMinutes * 60;
+                totalSeconds = timerMinutes * 60;
+            }
+
+            // Apply question count
+            if (qFromUrl !== null && !isNaN(qFromUrl) && qFromUrl > 0 && qFromUrl <= 200) {
+                totalQuestions = qFromUrl;
             }
         }
 
@@ -1559,9 +1581,15 @@
             if (!data) return;
 
             questionInfos = data.questionInfos || [];
-            totalQuestions = data.totalQuestions || 0;
+            
+            // Only use stored totalQuestions if no URL parameter is set
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlQuestionsSet = urlParams.has('q') || window.location.hash.indexOf('q=') !== -1;
+            if (!urlQuestionsSet) {
+                totalQuestions = data.totalQuestions || 0;
+            }
 
-            const urlTimerSet = window.location.hash.indexOf('#t=') !== -1;
+            const urlTimerSet = urlParams.has('t') || window.location.hash.indexOf('t=') !== -1;
             if (!urlTimerSet || data.isRunning) {
                 timerMinutes = data.timerMinutes !== undefined ? data.timerMinutes : 90;
                 totalSeconds = data.totalSeconds !== undefined ? data.totalSeconds : timerMinutes * 60;
