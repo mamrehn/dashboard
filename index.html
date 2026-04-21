@@ -247,7 +247,7 @@
         .timer-number-wrap {
             display: flex;
             align-items: baseline;
-            gap: var(--space-2);
+            gap: var(--space-3);
         }
 
         .timer-unit {
@@ -264,9 +264,11 @@
         }
 
         .timer-label {
-            font-size: 36px;
+            /* Matches .timer-unit so "Restzeit 33 min" reads as one baseline-
+               aligned typographic unit rather than three mismatched parts. */
+            font-size: 42px;
             color: var(--color-dashboard-text-muted);
-            font-weight: var(--font-weight-semibold);
+            font-weight: var(--font-weight-medium);
             line-height: var(--line-height-tight);
         }
 
@@ -815,15 +817,12 @@
             transform: rotate(45deg);
         }
 
+        /* Checked = "acknowledged / committed to", not "done / discarded".
+           Keep full text color and no strikethrough; the tinted row and
+           filled checkbox carry the confirmation. */
         .checklist-item:has(.checklist-checkbox:checked) {
             background: var(--color-primary-50);
             border-color: var(--color-primary-500);
-            color: var(--color-dashboard-text-muted);
-        }
-
-        .checklist-item:has(.checklist-checkbox:checked) span {
-            text-decoration: line-through;
-            text-decoration-color: var(--color-primary-600);
         }
 
         /* Responsive Adjustments */
@@ -855,8 +854,9 @@
                 /* Smaller timer font */
             }
 
-            .timer-label {
-                font-size: 28px;
+            .timer-label,
+            .timer-unit {
+                font-size: 30px;
             }
 
             .btn {
@@ -913,7 +913,8 @@
                 font-size: 60px;
             }
 
-            .timer-label {
+            .timer-label,
+            .timer-unit {
                 font-size: 24px;
             }
 
@@ -1033,8 +1034,8 @@
         <!-- Timer Section -->
         <div class="timer-section">
             <div class="timer-row">
-                <div class="timer-label">Restzeit</div>
                 <div class="timer-number-wrap">
+                    <div class="timer-label">Restzeit</div>
                     <div class="timer-display" id="timerDisplay" contenteditable="true" onclick="editTimer()">90</div>
                     <span class="timer-unit" id="timerUnit">min</span>
                 </div>
