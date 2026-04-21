@@ -1351,24 +1351,33 @@
         function updateTimerDisplay() {
             const display = document.getElementById('timerDisplay');
             const unit = document.getElementById('timerUnit');
+            // Don't clobber the teacher's edit-in-progress every tick. The
+            // blur handler writes the new value when editing finishes.
+            const isEditing = document.activeElement === display;
 
             if (isRunning) {
                 const minutes = Math.floor(remainingSeconds / 60);
                 const seconds = remainingSeconds % 60;
 
                 if (remainingSeconds <= 180) { // 3 minutes (180 seconds) or less
-                    display.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                    if (!isEditing) {
+                        display.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                    }
                     if (remainingSeconds <= 60) {
                         display.classList.add('warning');
                     } else {
                         display.classList.remove('warning');
                     }
                 } else {
-                    display.textContent = `${minutes}`; // Display only minutes, no "Min"
+                    if (!isEditing) {
+                        display.textContent = `${minutes}`; // Display only minutes, no "Min"
+                    }
                     display.classList.remove('warning');
                 }
             } else {
-                display.textContent = timerMinutes;
+                if (!isEditing) {
+                    display.textContent = timerMinutes;
+                }
                 display.classList.remove('warning');
             }
 
