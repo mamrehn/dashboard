@@ -256,7 +256,6 @@
             color: var(--color-dashboard-text);
             font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
             /* Monospaced font for timer */
-            line-height: 1;
             border: 2px solid transparent;
             /* Transparent border for editing */
             border-radius: var(--radius);
@@ -833,6 +832,29 @@
             top: 0;
             width: auto
         }
+
+        /* Teacher mode: hide teacher-only controls unless the teacher has
+           activated them via the toggle button. Kept subtle from a distance. */
+        body:not(.teacher-mode) .teacher-only {
+            display: none !important;
+        }
+
+        .teacher-toggle {
+            opacity: 0.2;
+            transition: opacity var(--transition-base), background var(--transition-fast);
+        }
+
+        .teacher-toggle:hover,
+        .teacher-toggle:focus-visible {
+            opacity: 1;
+        }
+
+        body.teacher-mode .teacher-toggle {
+            opacity: 1;
+            background: var(--color-primary-50);
+            border-color: var(--color-primary-500);
+            color: var(--color-primary-600);
+        }
     </style>
 </head>
 
@@ -869,7 +891,7 @@
         <!-- Additional Information -->
         <div class="additional-info">
             <div class="info-display" id="infoDisplay"></div>
-            <div class="info-input">
+            <div class="info-input teacher-only">
                 <input type="text" id="questionNumber" placeholder="Aufg. Nr.">
                 <textarea id="questionText" placeholder="Information zur Aufgabe..." rows="2"></textarea>
                 <button class="btn btn-primary" onclick="addQuestionInfo()">Hinzufügen</button>
@@ -879,10 +901,11 @@
 
     <!-- File Controls (moved to bottom right) -->
     <div class="file-controls">
-        <button class="btn-small" onclick="resetAll()" title="Alles zurücksetzen"><i class="bi bi-arrow-counterclockwise"></i></button>
-        <button class="btn-small" onclick="exportData()" title="Exportieren"><i class="bi bi-arrow-bar-down"></i></button>
-        <button class="btn-small" onclick="document.getElementById('fileInput').click()" title="Importieren"><i
+        <button class="btn-small teacher-only" onclick="resetAll()" title="Alles zurücksetzen"><i class="bi bi-arrow-counterclockwise"></i></button>
+        <button class="btn-small teacher-only" onclick="exportData()" title="Exportieren"><i class="bi bi-arrow-bar-down"></i></button>
+        <button class="btn-small teacher-only" onclick="document.getElementById('fileInput').click()" title="Importieren"><i
                 class="bi bi-arrow-bar-up"></i></button>
+        <button class="btn-small teacher-toggle" id="teacherToggleBtn" onclick="toggleTeacherMode()" title="Lehrer-Ansicht umschalten" aria-label="Lehrer-Ansicht umschalten"><i class="bi bi-gear"></i></button>
         <input type="file" id="fileInput" class="file-input" accept=".json" onchange="importData(event)">
     </div>
 
@@ -1454,22 +1477,23 @@
                 if (elapsedSeconds === 0) expectedQuestion = 1;
             }
 
-            // Build label with editable total
-            const totalSpan = `<span class="progress-total" contenteditable="true" id="progressTotal">${totalQuestions}</span>`;
-            label.innerHTML = isRunning
-                ? `Aufgabe ${expectedQuestion} / ${totalSpan}`
-                : `${totalSpan} Aufgaben`;
-
-            // Add event listener for editing the total
-            const totalEl = document.getElementById('progressTotal');
-            if (totalEl) {
-                totalEl.addEventListener('blur', function() {
+            // Build label structure once; on subsequent ticks reuse existing
+            // nodes so the editable #progressTotal keeps focus/caret while the
+            // user is editing, and the pulse animation on current tile isn't
+            // restarted every second.
+            let totalEl = document.getElementById('progressTotal');
+            if (!totalEl) {
+                label.innerHTML = '<span id="progressPrefix"></span><span class="progress-total" contenteditable="true" id="progressTotal"></span><span id="progressSuffix"></span>';
+                totalEl = document.getElementById('progressTotal');
+                totalEl.addEventListener('blur', function () {
                     const newVal = parseInt(this.textContent) || 0;
                     if (newVal !== totalQuestions) {
                         setQuestionCount(newVal);
+                    } else {
+                        this.textContent = totalQuestions;
                     }
                 });
-                totalEl.addEventListener('keydown', function(e) {
+                totalEl.addEventListener('keydown', function (e) {
                     if (e.key === 'Enter') {
                         e.preventDefault();
                         this.blur();
@@ -1477,23 +1501,44 @@
                 });
             }
 
-            bar.innerHTML = '';
-            for (let i = 1; i <= totalQuestions; i++) {
-                const tile = document.createElement('div');
-                tile.className = 'progress-tile';
+            const prefix = document.getElementById('progressPrefix');
+            const suffix = document.getElementById('progressSuffix');
+            if (isRunning) {
+                prefix.textContent = `Aufgabe ${expectedQuestion} / `;
+                suffix.textContent = '';
+            } else {
+                prefix.textContent = '';
+                suffix.textContent = ' Aufgaben';
+            }
+            if (document.activeElement !== totalEl) {
+                totalEl.textContent = totalQuestions;
+            }
+
+            // Reuse existing tile nodes when the count hasn't changed; only
+            // update classes. This keeps the .current pulse animation smooth.
+            let tiles = bar.children;
+            if (tiles.length !== totalQuestions) {
+                bar.innerHTML = '';
+                for (let i = 0; i < totalQuestions; i++) {
+                    const tile = document.createElement('div');
+                    tile.className = 'progress-tile';
+                    bar.appendChild(tile);
+                }
+                tiles = bar.children;
+            }
+
+            for (let i = 0; i < tiles.length; i++) {
+                const tile = tiles[i];
+                const q = i + 1;
+                let cls = 'progress-tile';
                 if (isRunning) {
-                    if (i < expectedQuestion) {
-                        tile.classList.add('completed');
-                    } else if (i === expectedQuestion) {
-                        // If time is fully elapsed, mark as completed instead of current
-                        if (remainingSeconds === 0) {
-                            tile.classList.add('completed');
-                        } else {
-                            tile.classList.add('current');
-                        }
+                    if (q < expectedQuestion) {
+                        cls += ' completed';
+                    } else if (q === expectedQuestion) {
+                        cls += remainingSeconds === 0 ? ' completed' : ' current';
                     }
                 }
-                bar.appendChild(tile);
+                if (tile.className !== cls) tile.className = cls;
             }
         }
 
@@ -1512,6 +1557,9 @@
          * Resets the entire dashboard for a new exam.
          */
         function resetAll() {
+            if (!confirm('Möchten Sie wirklich alle Daten (Timer, Aufgaben-Infos, Pausenzeit) zurücksetzen?')) {
+                return;
+            }
             clearInterval(timerInterval);
 
             isRunning = false;
@@ -1690,6 +1738,8 @@
                 };
                 reader.readAsText(file);
             }
+            // Reset so selecting the same file again still triggers change
+            event.target.value = '';
         }
 
         document.getElementById('questionText').addEventListener('keypress', function (e) {
@@ -1709,6 +1759,17 @@
 
         function hideMessage() {
             document.getElementById('customModal').style.display = 'none';
+        }
+
+        /**
+         * Toggles teacher-mode on the body. In student mode (default) all
+         * teacher-only controls are hidden; only the small toggle button in
+         * the bottom right corner stays visible. Layout is re-measured
+         * because hiding/showing the input row changes available height.
+         */
+        function toggleTeacherMode() {
+            document.body.classList.toggle('teacher-mode');
+            adjustLayout();
         }
     </script>
 </body>
