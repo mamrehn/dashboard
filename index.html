@@ -231,7 +231,8 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: var(--space-3);
+            /* Tight gap so the progress bar reads as a visual base for the timer. */
+            gap: var(--space-2);
             padding: var(--space-4) var(--space-6);
         }
 
@@ -241,6 +242,25 @@
             justify-content: center;
             gap: var(--space-8);
             flex-wrap: wrap;
+        }
+
+        .timer-number-wrap {
+            display: flex;
+            align-items: baseline;
+            gap: var(--space-2);
+        }
+
+        .timer-unit {
+            font-size: 42px;
+            font-weight: var(--font-weight-medium);
+            color: var(--color-dashboard-text-muted);
+            line-height: var(--line-height-tight);
+            transition: opacity var(--transition-slow), visibility var(--transition-slow);
+        }
+
+        .timer-unit.hidden {
+            opacity: 0;
+            visibility: hidden;
         }
 
         .timer-label {
@@ -276,24 +296,33 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: var(--space-1);
+            gap: var(--space-2);
         }
 
         .progress-label {
-            font-size: 30px;
+            font-size: 24px;
             font-weight: var(--font-weight-medium);
             color: var(--color-dashboard-text-muted);
         }
 
         .progress-total {
-            cursor: pointer;
-            border-bottom: 1px dashed var(--color-text-muted);
             min-width: 1.5em;
             display: inline-block;
             text-align: center;
+            /* Lock to a single line-box so the span doesn't grow in height
+               when the teacher clears it (Chrome/Firefox inject a <br>
+               into empty contenteditable fields). */
+            line-height: 1;
+            min-height: 1em;
+            vertical-align: baseline;
         }
 
-        .progress-total:focus {
+        body.teacher-mode .progress-total {
+            cursor: pointer;
+            border-bottom: 1px dashed var(--color-text-muted);
+        }
+
+        body.teacher-mode .progress-total:focus {
             outline: none;
             border-bottom-color: var(--color-primary-500);
             border-bottom-style: solid;
@@ -304,33 +333,49 @@
             gap: 3px;
             width: 100%;
             justify-content: center;
+            /* Extra top padding so the current-tile marker (above the tile) is
+               not clipped by the surrounding layout. */
+            padding-top: 22px;
         }
 
         .progress-tile {
-            height: 20px;
+            height: 28px;
             min-width: 12px;
             flex: 1 1 auto;
             max-width: 60px;
             border-radius: var(--radius-sm);
-            background: var(--color-border);
+            /* Darker neutral so upcoming tiles remain readable at distance. */
+            background: #b8bfc6;
             transition: background var(--transition-fast);
             border: 1px solid rgba(0, 0, 0, 0.1);
+            position: relative;
         }
 
         .progress-tile.completed {
-            background: var(--color-success);
+            background: var(--color-primary-500);
             border-color: var(--color-primary-600);
         }
 
         .progress-tile.current {
-            background: var(--color-warning);
-            border-color: #e6720e;
-            animation: tilePulse 1.5s ease-in-out infinite;
+            background: var(--color-primary-600);
+            border-color: var(--color-primary-700);
         }
 
-        @keyframes tilePulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.6; }
+        /* Static downward-pointing marker above the current tile. No pulse:
+           a calm, readable indicator reads better from a distance. */
+        .progress-tile.current::before {
+            content: '';
+            position: absolute;
+            left: 50%;
+            bottom: calc(100% + 6px);
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-top: 14px solid var(--color-primary-700);
+            filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.25));
+            pointer-events: none;
         }
 
         /* Timer Controls (Buttons inside Timer Section) */
@@ -743,11 +788,11 @@
             }
 
             .progress-label {
-                font-size: 30px;
+                font-size: 22px;
             }
 
             .progress-tile {
-                height: 14px;
+                height: 22px;
                 min-width: 8px;
             }
         }
@@ -811,11 +856,11 @@
             }
 
             .progress-label {
-                font-size: 30px;
+                font-size: 20px;
             }
 
             .progress-tile {
-                height: 10px;
+                height: 18px;
                 min-width: 6px;
             }
         }
@@ -837,6 +882,28 @@
            activated them via the toggle button. Kept subtle from a distance. */
         body:not(.teacher-mode) .teacher-only {
             display: none !important;
+        }
+
+        /* Student view should look calm and non-interactive: the break-end
+           input renders as plain text (no border / no focus ring / no caret),
+           and the contenteditable timer + question-count lose their edit
+           affordances until the teacher toggles back in. */
+        body:not(.teacher-mode) .time-input {
+            border-color: transparent;
+            background: transparent;
+            box-shadow: none;
+            cursor: default;
+            pointer-events: none;
+            padding: 0;
+            font-size: 36px;
+            font-weight: var(--font-weight-semibold);
+            color: var(--color-dashboard-text);
+        }
+
+        body:not(.teacher-mode) .timer-display {
+            cursor: default;
+            pointer-events: none;
+            border-color: transparent;
         }
 
         .teacher-toggle {
@@ -877,14 +944,17 @@
         <!-- Timer Section -->
         <div class="timer-section">
             <div class="timer-row">
-                <button class="btn btn-success" id="startBtn" onclick="startTimer()">
+                <div class="timer-label">Restzeit</div>
+                <div class="timer-number-wrap">
+                    <div class="timer-display" id="timerDisplay" contenteditable="true" onclick="editTimer()">90</div>
+                    <span class="timer-unit" id="timerUnit">min</span>
+                </div>
+                <button class="btn btn-success teacher-only" id="startBtn" onclick="startTimer()">
                     <i class="bi bi-play-fill"></i></button>
-                <div class="timer-label">Verbleibende Minuten</div>
-                <div class="timer-display" id="timerDisplay" contenteditable="true" onclick="editTimer()">90</div>
             </div>
             <div class="progress-bar-container" id="progressBarContainer">
-                <div class="progress-label" id="progressLabel"></div>
                 <div class="progress-bar" id="progressBar"></div>
+                <div class="progress-label" id="progressLabel"></div>
             </div>
         </div>
 
@@ -953,6 +1023,10 @@
          * Also sets up event listeners and initial layout adjustments.
          */
         function init() {
+            // Start in teacher mode so the teacher can make initial
+            // adjustments (timer, question count, info). Toggling off moves
+            // the dashboard into the calm student view.
+            document.body.classList.add('teacher-mode');
             setRandomBackground();
             parseUrlForTimer();
             updateDateDisplay();
@@ -1051,26 +1125,40 @@
             const timerDisplay = document.getElementById('timerDisplay');
 
             timerDisplay.addEventListener('blur', function () {
-                const value = parseInt(this.textContent) || 0;
+                const raw = this.textContent.trim();
+                const value = /^\d+$/.test(raw) ? parseInt(raw, 10) : NaN;
 
                 if (isRunning) {
-                    // When running, treat edited value as new remaining minutes
-                    const newRemainingMinutes = Math.max(0, Math.min(300, value));
-                    const delta = (newRemainingMinutes * 60) - remainingSeconds;
-                    remainingSeconds = newRemainingMinutes * 60;
-                    totalSeconds = Math.max(1, totalSeconds + delta);
+                    // Accept only valid in-range numbers. Empty / invalid
+                    // input reverts the display instead of silently ending
+                    // or mutating the timer.
+                    if (!isNaN(value) && value >= 0 && value <= 300) {
+                        const delta = (value * 60) - remainingSeconds;
+                        remainingSeconds = value * 60;
+                        totalSeconds = Math.max(1, totalSeconds + delta);
+                        updateEndTimes();
+                        updateProgressBar();
+                    }
                     updateTimerDisplay();
-                    updateEndTimes();
-                    updateProgressBar();
                 } else {
-                    // When stopped, set initial timer value for next start
-                    timerMinutes = Math.max(1, Math.min(300, value || 90));
-                    this.textContent = timerMinutes;
-                    totalSeconds = timerMinutes * 60;
-                    remainingSeconds = totalSeconds;
+                    // Empty or invalid: revert to the previous timerMinutes
+                    // rather than auto-injecting 90 (which was surprising).
+                    if (!isNaN(value) && value >= 1 && value <= 300) {
+                        timerMinutes = value;
+                        totalSeconds = timerMinutes * 60;
+                        remainingSeconds = totalSeconds;
+                    }
                     updateTimerDisplay();
                 }
                 saveToStorage();
+            });
+
+            // Strip the stray <br> browsers insert into empty contenteditable
+            // fields; otherwise the element grows to two line-heights tall.
+            timerDisplay.addEventListener('input', function () {
+                if (this.innerHTML === '<br>' || this.innerHTML === '<br/>') {
+                    this.innerHTML = '';
+                }
             });
 
             timerDisplay.addEventListener('keypress', function (e) {
@@ -1131,6 +1219,7 @@
          */
         function updateTimerDisplay() {
             const display = document.getElementById('timerDisplay');
+            const unit = document.getElementById('timerUnit');
 
             if (isRunning) {
                 const minutes = Math.floor(remainingSeconds / 60);
@@ -1150,6 +1239,14 @@
             } else {
                 display.textContent = timerMinutes;
                 display.classList.remove('warning');
+            }
+
+            // Fade the "min" unit out as soon as we switch to MM:SS so the
+            // transition from e.g. "3 min" to "2:59" feels smooth rather than
+            // abrupt. While stopped or while showing whole minutes, keep it.
+            if (unit) {
+                const showUnit = !isRunning || remainingSeconds > 180;
+                unit.classList.toggle('hidden', !showUnit);
             }
         }
 
@@ -1483,6 +1580,13 @@
                         this.textContent = totalQuestions;
                     }
                 });
+                // Keep the span's height stable when cleared — see same
+                // treatment on #timerDisplay.
+                totalEl.addEventListener('input', function () {
+                    if (this.innerHTML === '<br>' || this.innerHTML === '<br/>') {
+                        this.innerHTML = '';
+                    }
+                });
                 totalEl.addEventListener('keydown', function (e) {
                     if (e.key === 'Enter') {
                         e.preventDefault();
@@ -1752,14 +1856,34 @@
         }
 
         /**
-         * Toggles teacher-mode on the body. In student mode (default) all
-         * teacher-only controls are hidden; only the small toggle button in
-         * the bottom right corner stays visible. Layout is re-measured
-         * because hiding/showing the input row changes available height.
+         * Toggles teacher-mode on the body. In student mode all teacher-only
+         * controls are hidden; only the small toggle button in the bottom
+         * right corner stays visible. Also flips contenteditable on the
+         * timer and the question-count span so students can't tamper with
+         * them via direct click/tab focus. Layout is re-measured because
+         * hiding/showing the input row changes available height.
          */
         function toggleTeacherMode() {
+            const wasTeacher = document.body.classList.contains('teacher-mode');
             document.body.classList.toggle('teacher-mode');
+            const isTeacher = document.body.classList.contains('teacher-mode');
+            const timerDisplay = document.getElementById('timerDisplay');
+            const totalEl = document.getElementById('progressTotal');
+            if (timerDisplay) timerDisplay.setAttribute('contenteditable', isTeacher ? 'true' : 'false');
+            if (totalEl) totalEl.setAttribute('contenteditable', isTeacher ? 'true' : 'false');
             adjustLayout();
+
+            // Leaving teacher mode = the classroom view takes over. Request
+            // fullscreen so the dashboard fills the smartboard. We don't
+            // auto-exit when re-entering — the teacher can press Esc.
+            if (wasTeacher && !isTeacher && !document.fullscreenElement) {
+                const el = document.documentElement;
+                const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+                if (req) {
+                    const result = req.call(el);
+                    if (result && typeof result.catch === 'function') result.catch(() => {});
+                }
+            }
         }
     </script>
 </body>
