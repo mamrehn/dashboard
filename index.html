@@ -1019,6 +1019,30 @@
             border-color: var(--color-primary-500);
             color: var(--color-primary-600);
         }
+
+        @keyframes teacherNudge {
+            0% {
+                box-shadow: 0 0 0 0 rgba(44, 160, 44, 0.9);
+                background: var(--color-primary-500);
+                color: #fff;
+                transform: scale(1);
+            }
+            50% {
+                box-shadow: 0 0 0 16px rgba(44, 160, 44, 0.25);
+                background: var(--color-primary-500);
+                color: #fff;
+                transform: scale(1.12);
+            }
+            100% {
+                box-shadow: 0 0 0 32px rgba(44, 160, 44, 0);
+                background: var(--color-primary-500);
+                color: #fff;
+                transform: scale(1);
+            }
+        }
+        .teacher-toggle.nudge {
+            animation: teacherNudge 1.1s ease-out infinite;
+        }
     </style>
 </head>
 
@@ -1344,6 +1368,17 @@
 
             isRunning = true;
             document.getElementById('startBtn').style.display = 'none';
+
+            // Nudge uninitiated teachers to toggle into student view after a
+            // fresh start. Skip on resume-from-load to avoid pulsing on every
+            // page refresh.
+            if (!isResumeFromLoad) {
+                const teacherBtn = document.getElementById('teacherToggleBtn');
+                if (teacherBtn) {
+                    teacherBtn.classList.add('nudge');
+                    setTimeout(() => teacherBtn.classList.remove('nudge'), 10000);
+                }
+            }
 
             timerInterval = setInterval(() => {
                 if (remainingSeconds > 0) {
@@ -2033,6 +2068,9 @@
             const totalEl = document.getElementById('progressTotal');
             if (timerDisplay) timerDisplay.setAttribute('contenteditable', isTeacher ? 'true' : 'false');
             if (totalEl) totalEl.setAttribute('contenteditable', isTeacher ? 'true' : 'false');
+            // Teacher engaged — no further need to nudge.
+            const teacherBtn = document.getElementById('teacherToggleBtn');
+            if (teacherBtn) teacherBtn.classList.remove('nudge');
             adjustLayout();
 
             // Leaving teacher mode = the classroom view takes over. Request
