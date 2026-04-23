@@ -1130,17 +1130,6 @@
             <div class="time-info">
                 <div class="time-label" id="examEndLabel">Ende Prüfung:</div>
                 <div class="time-value" id="examEndTime">--:--</div>
-                <!-- Extension chips: visible to both teacher and students when configured -->
-                <div class="zusatzzeit-chips" id="zusatzzeitChips" style="display:none;"></div>
-            </div>
-            <!-- Nachteilsausgleich: toggle buttons (teacher only) -->
-            <div class="zusatzzeit-add-btns teacher-only" id="zusatzzeitAddBtns">
-                <span class="zusatzzeit-add-label">Nachteilsausgleich:</span>
-                <button class="btn-small" id="nabBtn10" onclick="addZusatzzeit(10)">+10%</button>
-                <button class="btn-small" id="nabBtn15" onclick="addZusatzzeit(15)">+15%</button>
-                <button class="btn-small" id="nabBtn20" onclick="addZusatzzeit(20)">+20%</button>
-                <button class="btn-small" id="nabBtn25" onclick="addZusatzzeit(25)">+25%</button>
-                <button class="btn-small" id="nabBtn50" onclick="addZusatzzeit(50)">+50%</button>
             </div>
             <div class="time-info">
                 <div class="time-label">Ende Pause:</div>
@@ -1159,6 +1148,17 @@
                 <button class="btn btn-success teacher-only" id="startBtn" onclick="startTimer()">
                     <i class="bi bi-play-fill"></i></button>
             </div>
+            <!-- Nachteilsausgleich: toggle buttons (teacher only) -->
+            <div class="zusatzzeit-add-btns teacher-only" id="zusatzzeitAddBtns">
+                <span class="zusatzzeit-add-label">Nachteilsausgleich:</span>
+                <button class="btn-small" id="nabBtn10" onclick="addZusatzzeit(10)">+10%</button>
+                <button class="btn-small" id="nabBtn15" onclick="addZusatzzeit(15)">+15%</button>
+                <button class="btn-small" id="nabBtn20" onclick="addZusatzzeit(20)">+20%</button>
+                <button class="btn-small" id="nabBtn25" onclick="addZusatzzeit(25)">+25%</button>
+                <button class="btn-small" id="nabBtn50" onclick="addZusatzzeit(50)">+50%</button>
+            </div>
+            <!-- Extension chips: visible to both teacher and students when configured -->
+            <div class="zusatzzeit-chips" id="zusatzzeitChips" style="display:none;"></div>
             <div class="progress-bar-container" id="progressBarContainer">
                 <div class="progress-bar" id="progressBar"></div>
                 <div class="progress-label" id="progressLabel"></div>
@@ -1413,6 +1413,7 @@
                         updateProgressBar();
                     }
                     updateTimerDisplay();
+                    updateZusatzzeitDisplay();
                 } else {
                     // Empty or invalid: revert to the previous timerMinutes
                     // rather than auto-injecting 30 (which was surprising).
