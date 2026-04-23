@@ -2046,10 +2046,59 @@
 
         function showChecklist() {
             document.getElementById('checklistModal').style.display = 'flex';
+            const el = document.documentElement;
+            
+            // Request fullscreen for the checklist modal
+            if (!document.fullscreenElement) {
+                const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+                if (req) {
+                    const result = req.call(el);
+                    if (result && typeof result.catch === 'function') result.catch(() => {});
+                }
+            }
+            
+            // Add Enter key listener to checkboxes
+            addChecklistCheckboxListeners();
         }
 
         function hideChecklist() {
             document.getElementById('checklistModal').style.display = 'none';
+        }
+        
+        function addChecklistCheckboxListeners() {
+            const checkboxes = document.querySelectorAll('#checklistModal .checklist-checkbox');
+            checkboxes.forEach((checkbox, index) => {
+                // Remove any existing listeners to avoid duplicates
+                checkbox.removeEventListener('keypress', handleChecklistCheckboxEnter);
+                checkbox.addEventListener('keypress', (e) => handleChecklistCheckboxEnter(e, index));
+            });
+            
+            // Focus the first checkbox when the checklist opens
+            if (checkboxes.length > 0) {
+                checkboxes[0].focus();
+            }
+        }
+        
+        function handleChecklistCheckboxEnter(e, currentIndex) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                // Toggle the checkbox state using e.target
+                e.target.checked = !e.target.checked;
+                
+                // Move focus to the next checkbox or to close button if last item
+                const checkboxes = document.querySelectorAll('#checklistModal .checklist-checkbox');
+                const nextIndex = currentIndex + 1;
+                
+                if (nextIndex < checkboxes.length) {
+                    checkboxes[nextIndex].focus();
+                } else {
+                    // Focus on the close button after the last checkbox
+                    const closeBtn = document.querySelector('#checklistModal .btn-primary');
+                    if (closeBtn) {
+                        closeBtn.focus();
+                    }
+                }
+            }
         }
 
         /**
