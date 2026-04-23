@@ -657,8 +657,8 @@
         /* Animations */
         /* Removed .running animation for timer-section as requested */
         .warning {
-            color: var(--color-error) !important;
-            /* Important to override other colors */
+            /* No !important – inline colour (set during extension phases) wins naturally. */
+            color: var(--color-error);
             animation: blink 1s infinite;
         }
 
@@ -1043,6 +1043,81 @@
         .teacher-toggle.nudge {
             animation: teacherNudge 1.1s ease-out infinite;
         }
+
+        /* === Nachteilsausgleich (extended exam time) === */
+        .zusatzzeit-add-btns {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            flex-wrap: wrap;
+        }
+        .zusatzzeit-add-label {
+            font-size: var(--font-size-base);
+            color: var(--color-text-muted);
+            font-weight: var(--font-weight-medium);
+            white-space: nowrap;
+        }
+        /* Add-button coloured state when the percentage is already active */
+        .zusatzzeit-add-btns .btn-small.added {
+            background: var(--nab-bg, var(--color-surface));
+            color: var(--nab-color, var(--color-text));
+            border-color: var(--nab-border, var(--color-border));
+            font-weight: var(--font-weight-semibold);
+        }
+        .zusatzzeit-chips {
+            display: flex;
+            gap: var(--space-3);
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .zusatzzeit-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: 3px 14px;
+            border-radius: 24px;
+            font-size: 30px;
+            font-weight: var(--font-weight-medium);
+            background: var(--nab-bg);
+            color: var(--nab-color);
+            border: 1.5px solid var(--nab-border);
+            white-space: nowrap;
+            /* Pending (not yet started): muted */
+            opacity: 0.55;
+            transition: opacity var(--transition-base), box-shadow var(--transition-base);
+        }
+        /* Currently running extension: full opacity + subtle ring */
+        .zusatzzeit-chip.active {
+            opacity: 1;
+            box-shadow: 0 0 0 2px var(--nab-color);
+            font-weight: var(--font-weight-semibold);
+        }
+        /* Completed extension: very dim */
+        .zusatzzeit-chip.past {
+            opacity: 0.25;
+        }
+        .zusatzzeit-chip-sep {
+            opacity: 0.5;
+        }
+        .zusatzzeit-chip-remove {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: inherit;
+            opacity: 0.5;
+            padding: 0;
+            margin-left: 4px;
+            font-size: 20px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+        }
+        .zusatzzeit-chip-remove:hover { opacity: 1; }
+        body:not(.teacher-mode) .zusatzzeit-chip-remove { display: none !important; }
+        .zusatzzeit-chip-remove:disabled {
+            opacity: 0.2;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 
@@ -1053,8 +1128,19 @@
         <div class="date-info">
             <div class="date-display" id="dateDisplay"></div>
             <div class="time-info">
-                <div class="time-label">Ende Prüfung:</div>
+                <div class="time-label" id="examEndLabel">Ende Prüfung:</div>
                 <div class="time-value" id="examEndTime">--:--</div>
+                <!-- Extension chips: visible to both teacher and students when configured -->
+                <div class="zusatzzeit-chips" id="zusatzzeitChips" style="display:none;"></div>
+            </div>
+            <!-- Nachteilsausgleich: toggle buttons (teacher only) -->
+            <div class="zusatzzeit-add-btns teacher-only" id="zusatzzeitAddBtns">
+                <span class="zusatzzeit-add-label">Nachteilsausgleich:</span>
+                <button class="btn-small" id="nabBtn10" onclick="addZusatzzeit(10)">+10%</button>
+                <button class="btn-small" id="nabBtn15" onclick="addZusatzzeit(15)">+15%</button>
+                <button class="btn-small" id="nabBtn20" onclick="addZusatzzeit(20)">+20%</button>
+                <button class="btn-small" id="nabBtn25" onclick="addZusatzzeit(25)">+25%</button>
+                <button class="btn-small" id="nabBtn50" onclick="addZusatzzeit(50)">+50%</button>
             </div>
             <div class="time-info">
                 <div class="time-label">Ende Pause:</div>
@@ -1169,11 +1255,28 @@
         let breakEndTimeSetByUser = false;
         let totalQuestions = 0;
         let resizeTimeout;
+        // Nachteilsausgleich: sorted array of percentage values (e.g. [10, 25])
+        // and the currently running phase index (-1 = main exam, 0+ = extension index).
+        let zusatzzeiten = [];
+        let zusatzzeitPhase = -1;
 
         // Sanitize HTML: use DOMPurify if available, otherwise passthrough
         const sanitize = typeof DOMPurify !== 'undefined'
             ? (html) => DOMPurify.sanitize(html)
             : (html) => html;
+
+        // Calm, accessible colour palette for Nachteilsausgleich extensions.
+        // Each entry: main (text/border accent), light (chip background), border (chip border).
+        const ZUSATZZEIT_COLORS = {
+            10: { main: '#e67e22', light: '#fef3e2', border: '#d4680e' },
+            15: { main: '#16a085', light: '#e8f8f5', border: '#0e8a72' },
+            20: { main: '#8e44ad', light: '#f5eef8', border: '#7d3c98' },
+            25: { main: '#2471a3', light: '#eaf2fb', border: '#1a5276' },
+            50: { main: '#b03a2e', light: '#fdedec', border: '#922b21' },
+        };
+        function getZusatzzeitColor(pct) {
+            return ZUSATZZEIT_COLORS[pct] || { main: '#7f8c8d', light: '#f2f3f4', border: '#6c7a7d' };
+        }
 
 
         /**
@@ -1203,6 +1306,7 @@
             updateInfoDisplay();
             updateTimerDisplay();
             updateProgressBar();
+            updateZusatzzeitDisplay();
             document.getElementById('breakEndTime').addEventListener('change', validateBreakEndTime);
 
             adjustLayout();
@@ -1318,6 +1422,7 @@
                         remainingSeconds = totalSeconds;
                     }
                     updateTimerDisplay();
+                    updateZusatzzeitDisplay(); // chip minutes derive from timerMinutes
                 }
                 saveToStorage();
             });
@@ -1363,6 +1468,7 @@
             if (!isResumeFromLoad) {
                 totalSeconds = timerMinutes * 60;
                 remainingSeconds = totalSeconds;
+                zusatzzeitPhase = -1;
             }
             updateEndTimes();
 
@@ -1437,6 +1543,8 @@
                 const showUnit = !isRunning || remainingSeconds > 180;
                 unit.classList.toggle('hidden', !showUnit);
             }
+
+            updateTimerColor();
         }
 
         /**
@@ -1453,6 +1561,16 @@
                 hourCycle: 'h23'
             });
             document.getElementById('examEndTime').textContent = examEndTimeString;
+
+            // Update header label to identify which group finishes at this time.
+            const examEndLabel = document.getElementById('examEndLabel');
+            if (examEndLabel) {
+                if (isRunning && zusatzzeitPhase >= 0 && zusatzzeitPhase < zusatzzeiten.length) {
+                    examEndLabel.textContent = `Ende +${zusatzzeiten[zusatzzeitPhase]}%:`;
+                } else {
+                    examEndLabel.textContent = 'Ende Prüfung:';
+                }
+            }
 
             if (!breakEndTimeSetByUser) { // Only auto-suggest if user hasn't manually set it
                 const suggestedBreakEnd = new Date(examEnd.getTime() + 5 * 60 * 1000);
@@ -1515,22 +1633,79 @@
         }
 
         /**
-         * Handles actions when the timer reaches zero.
+         * Handles actions when the current timer phase reaches zero.
+         *
+         * If Nachteilsausgleich extensions are configured, the interval keeps
+         * running and we transition through phases in ascending order:
+         *   phase -1 → main exam  →  phase 0 → first extension  →  …  →  finish
+         *
+         * Each transition plays a sound and shows a targeted modal. The timer colour
+         * shifts to the active extension's colour, and the progress bar rescales to
+         * the current group's total time. The interval is only cleared when all
+         * phases (including the last extension) are exhausted.
          */
         function timerEnded() {
+            const prevPhase = zusatzzeitPhase;
+            const nextPhase = prevPhase + 1;
+
+            if (nextPhase < zusatzzeiten.length) {
+                // ── Transition to next extension phase — keep interval running ──
+                zusatzzeitPhase = nextPhase;
+                const currentPct = zusatzzeiten[zusatzzeitPhase];
+                const prevPct    = prevPhase >= 0 ? zusatzzeiten[prevPhase] : 0;
+                // Remaining seconds = only the incremental extra for this group.
+                remainingSeconds = Math.round(timerMinutes * 60 * (currentPct - prevPct) / 100);
+
+                playEndSound();
+
+                let title, msg;
+                if (prevPhase === -1) {
+                    title = 'Reguläre Prüfungszeit abgelaufen!';
+                    msg   = 'Alle ohne Nachteilsausgleich bitte jetzt aufhören.';
+                } else {
+                    title = `+${zusatzzeiten[prevPhase]}% Nachteilsausgleich \u2013 Zeit abgelaufen!`;
+                    msg   = `Alle mit ${zusatzzeiten[prevPhase]}% Nachteilsausgleich bitte jetzt aufhören.`;
+                }
+                showMessage(title, msg);
+
+                updateTimerDisplay();       // picks up new colour
+                updateZusatzzeitDisplay();  // marks new chip as active
+                updateProgressBar();
+                updateEndTimes();           // shows end time for the new group
+                saveToStorage();
+                return; // keep the interval — do NOT fall through to clearInterval
+            }
+
+            // ── All phases complete ──
+            // Capture prevPhase before resetting so the final message is correct.
+            const finalPrevPhase = zusatzzeitPhase;
+
             clearInterval(timerInterval);
 
-            // Update progress bar while still "running" so all tiles show completed
+            // Update progress bar while still "running" so all tiles show completed.
             updateProgressBar();
 
             isRunning = false;
+            zusatzzeitPhase = -1;
 
             document.getElementById('startBtn').style.display = 'inline-block';
             document.getElementById('timerDisplay').classList.remove('warning');
+            document.getElementById('timerDisplay').style.color = '';
 
             playEndSound();
-            showMessage('Zeit abgelaufen!', 'Die Prüfungszeit ist beendet. Gut gemacht!');
+
+            let finalTitle, finalMsg;
+            if (finalPrevPhase === -1) {
+                // No extensions were configured — standard end.
+                finalTitle = 'Zeit abgelaufen!';
+                finalMsg   = 'Die Prüfungszeit ist beendet. Gut gemacht!';
+            } else {
+                finalTitle = 'Zeit abgelaufen!';
+                finalMsg   = `Alle mit ${zusatzzeiten[finalPrevPhase]}% Nachteilsausgleich bitte jetzt aufhören. Die Prüfung ist insgesamt beendet.`;
+            }
+            showMessage(finalTitle, finalMsg);
             clearEndTimes();
+            updateZusatzzeitDisplay();
             saveToStorage();
         }
 
@@ -1747,8 +1922,20 @@
 
             let expectedQuestion = 0;
             if (isRunning && totalSeconds > 0 && totalQuestions > 0) {
-                const elapsedSeconds = totalSeconds - remainingSeconds;
-                expectedQuestion = Math.ceil((elapsedSeconds / totalSeconds) * totalQuestions);
+                let elapsedSeconds, effectiveTotalSeconds;
+                if (zusatzzeitPhase >= 0 && zusatzzeitPhase < zusatzzeiten.length) {
+                    // During an extension phase: scale progress to that group's full duration.
+                    // effectiveTotalSeconds = base + current extension %.
+                    // remainingSeconds counts down only the incremental extension slice,
+                    // so elapsed = effectiveTotal - remaining gives the correct overall position.
+                    const currentPct = zusatzzeiten[zusatzzeitPhase];
+                    effectiveTotalSeconds = Math.round(timerMinutes * 60 * (1 + currentPct / 100));
+                    elapsedSeconds = effectiveTotalSeconds - remainingSeconds;
+                } else {
+                    effectiveTotalSeconds = totalSeconds;
+                    elapsedSeconds = totalSeconds - remainingSeconds;
+                }
+                expectedQuestion = Math.ceil((elapsedSeconds / effectiveTotalSeconds) * totalQuestions);
                 expectedQuestion = Math.max(1, Math.min(totalQuestions, expectedQuestion));
                 if (elapsedSeconds === 0) expectedQuestion = 1;
             }
@@ -1837,6 +2024,111 @@
         }
 
         /**
+         * Toggles a Nachteilsausgleich percentage on/off.
+         * Active or already-completed phases cannot be removed.
+         */
+        function addZusatzzeit(pct) {
+            const idx = zusatzzeiten.indexOf(pct);
+            if (idx !== -1) {
+                // Already present — toggle off only if not yet started.
+                if (zusatzzeitPhase >= 0 && idx <= zusatzzeitPhase) return;
+                zusatzzeiten.splice(idx, 1);
+            } else {
+                zusatzzeiten.push(pct);
+                zusatzzeiten.sort((a, b) => a - b);
+            }
+            updateZusatzzeitDisplay();
+            saveToStorage();
+        }
+
+        /**
+         * Removes a Nachteilsausgleich percentage via the chip ×-button.
+         * Only future (not yet started) phases may be removed.
+         */
+        function removeZusatzzeit(pct) {
+            const phaseIdx = zusatzzeiten.indexOf(pct);
+            if (phaseIdx === -1) return;
+            if (zusatzzeitPhase >= 0 && phaseIdx <= zusatzzeitPhase) return;
+            zusatzzeiten.splice(phaseIdx, 1);
+            updateZusatzzeitDisplay();
+            saveToStorage();
+        }
+
+        /**
+         * Renders Nachteilsausgleich chips and updates the state of add-buttons.
+         * Chips are always visible (teacher + student) whenever extensions are configured.
+         */
+        function updateZusatzzeitDisplay() {
+            const chipsEl = document.getElementById('zusatzzeitChips');
+            if (!chipsEl) return;
+
+            if (zusatzzeiten.length === 0) {
+                chipsEl.style.display = 'none';
+                chipsEl.innerHTML = '';
+            } else {
+                chipsEl.style.display = 'flex';
+                chipsEl.innerHTML = zusatzzeiten.map((pct, i) => {
+                    const c = getZusatzzeitColor(pct);
+                    const extraMin = Math.round(timerMinutes * pct / 100);
+                    const isActive = isRunning && i === zusatzzeitPhase;
+                    const isPast   = zusatzzeitPhase >= 0 && i < zusatzzeitPhase;
+                    const canRemove = !(zusatzzeitPhase >= 0 && i <= zusatzzeitPhase);
+                    const stateClass = isActive ? 'active' : isPast ? 'past' : '';
+                    const ariaLabel = `Nachteilsausgleich +${pct}% \u2013 ${extraMin} Minuten${isActive ? ' (aktiv)' : isPast ? ' (abgelaufen)' : ''}`;
+                    return `<div class="zusatzzeit-chip ${stateClass}"
+                                 style="--nab-color:${c.main};--nab-bg:${c.light};--nab-border:${c.border};"
+                                 aria-label="${ariaLabel}">
+                                <span class="zusatzzeit-chip-pct">+${pct}&thinsp;%</span>
+                                <span class="zusatzzeit-chip-sep">|</span>
+                                <span class="zusatzzeit-chip-min">${extraMin}&thinsp;min</span>
+                                <button class="zusatzzeit-chip-remove teacher-only"
+                                        onclick="removeZusatzzeit(${pct})"
+                                        title="+${pct}% entfernen"
+                                        aria-label="+${pct}% entfernen"
+                                        ${canRemove ? '' : 'disabled'}><i class="bi bi-x"></i></button>
+                            </div>`;
+                }).join('');
+            }
+
+            // Sync add-button visual states (coloured = added, greyed = active/past).
+            [10, 15, 20, 25, 50].forEach(pct => {
+                const btn = document.getElementById(`nabBtn${pct}`);
+                if (!btn) return;
+                const c = getZusatzzeitColor(pct);
+                const isAdded = zusatzzeiten.includes(pct);
+                const phaseIdx = zusatzzeiten.indexOf(pct);
+                const isActiveOrPast = isAdded && zusatzzeitPhase >= 0 && phaseIdx <= zusatzzeitPhase;
+                if (isAdded) {
+                    btn.classList.add('added');
+                    btn.style.setProperty('--nab-bg',     c.light);
+                    btn.style.setProperty('--nab-color',  c.main);
+                    btn.style.setProperty('--nab-border', c.border);
+                    btn.disabled = isActiveOrPast;
+                } else {
+                    btn.classList.remove('added');
+                    btn.style.removeProperty('--nab-bg');
+                    btn.style.removeProperty('--nab-color');
+                    btn.style.removeProperty('--nab-border');
+                    btn.disabled = false;
+                }
+            });
+        }
+
+        /**
+         * Applies or removes the extension colour on the main timer display.
+         * Called at the end of every updateTimerDisplay() tick.
+         */
+        function updateTimerColor() {
+            const display = document.getElementById('timerDisplay');
+            if (!display) return;
+            if (isRunning && zusatzzeitPhase >= 0 && zusatzzeitPhase < zusatzzeiten.length) {
+                display.style.color = getZusatzzeitColor(zusatzzeiten[zusatzzeitPhase]).main;
+            } else {
+                display.style.color = '';
+            }
+        }
+
+        /**
          * Resets the entire dashboard for a new exam.
          */
         function resetAll() {
@@ -1854,6 +2146,8 @@
             breakEndTimeManual = '';
             breakEndTimeSetByUser = false;
             totalQuestions = 0;
+            zusatzzeiten = [];
+            zusatzzeitPhase = -1;
 
             try {
                 localStorage.removeItem('examDashboard');
@@ -1863,14 +2157,18 @@
 
             document.getElementById('startBtn').style.display = 'inline-block';
             document.getElementById('timerDisplay').classList.remove('warning');
+            document.getElementById('timerDisplay').style.color = '';
             document.getElementById('examEndTime').textContent = '--:--';
             document.getElementById('breakEndTime').value = '';
+            const examEndLabel = document.getElementById('examEndLabel');
+            if (examEndLabel) examEndLabel.textContent = 'Ende Prüfung:';
 
             parseUrlForTimer();
 
             updateTimerDisplay();
             updateInfoDisplay();
             updateProgressBar();
+            updateZusatzzeitDisplay();
         }
 
         /**
@@ -1887,6 +2185,8 @@
                 breakEndTimeSetByUser: breakEndTimeSetByUser,
                 examEndTimeString: examEndTimeString,
                 totalQuestions: totalQuestions,
+                zusatzzeiten: zusatzzeiten,
+                zusatzzeitPhase: zusatzzeitPhase,
                 savedAt: Date.now()
             };
             try {
@@ -1937,6 +2237,8 @@
             breakEndTimeManual = data.breakEndTimeManual || '';
             breakEndTimeSetByUser = data.breakEndTimeSetByUser || false;
             examEndTimeString = data.examEndTimeString || '';
+            zusatzzeiten    = Array.isArray(data.zusatzzeiten) ? data.zusatzzeiten : [];
+            zusatzzeitPhase = typeof data.zusatzzeitPhase === 'number' ? data.zusatzzeitPhase : -1;
 
             document.getElementById('breakEndTime').value = breakEndTimeManual;
             document.getElementById('examEndTime').textContent = examEndTimeString || '--:--';
@@ -1950,6 +2252,7 @@
             } else {
                 updateTimerDisplay();
             }
+            updateZusatzzeitDisplay();
         }
 
         /**
@@ -1965,6 +2268,8 @@
                 breakEndTimeManual: breakEndTimeManual,
                 examEndTimeString: examEndTimeString,
                 totalQuestions: totalQuestions,
+                zusatzzeiten: zusatzzeiten,
+                zusatzzeitPhase: zusatzzeitPhase,
                 exportDate: new Date().toISOString()
             };
 
@@ -2003,6 +2308,9 @@
                             document.getElementById('breakEndTime').value = breakEndTimeManual;
                             document.getElementById('examEndTime').textContent = examEndTimeString || '--:--';
 
+                            zusatzzeiten    = Array.isArray(data.zusatzzeiten) ? data.zusatzzeiten : [];
+                            zusatzzeitPhase = typeof data.zusatzzeitPhase === 'number' ? data.zusatzzeitPhase : -1;
+
                             clearInterval(timerInterval);
 
                             if (isRunning) {
@@ -2014,6 +2322,7 @@
                         }
                         saveToStorage();
                         updateInfoDisplay(); // Refresh info display (calls font size adjustment)
+                        updateZusatzzeitDisplay();
                         showMessage('Import Erfolgreich', 'Die Daten wurden erfolgreich importiert.');
                     } catch (error) {
                         showMessage('Import Fehler', 'Fehler beim Importieren der Datei: ' + error.message);
