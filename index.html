@@ -162,16 +162,20 @@
 
         /* Date and Time Info Section (ROW 1 - FIXED HEIGHT) */
         .date-info {
-            /* This row will not grow or shrink; its height is based on its content. */
+            /* 3-col grid (1fr auto 1fr) so the middle item — "Ende Prüfung:
+               HH:MM" — sits at the page's true centre regardless of how wide
+               the date-display on the left or the break-end input on the
+               right are. With justify-content: space-between (the previous
+               approach), the middle item drifts whenever the side columns
+               had different widths. */
             flex: 0 0 auto;
-            display: flex;
-            justify-content: space-between;
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
             align-items: center;
-            flex-wrap: wrap;
-            /* Allow wrapping on smaller screens */
             gap: var(--space-3);
-            /* Spacing between date and time elements */
         }
+        .date-info > :first-child  { justify-self: start; }
+        .date-info > :last-child   { justify-self: end; }
 
         .date-display {
             font-size: 36px;
@@ -213,8 +217,9 @@
             padding: 0 var(--space-3);
             border: 2px solid var(--color-border);
             border-radius: var(--radius);
-            width: 120px;
-            /* Fixed width for time input */
+            width: 140px;
+            /* Fixed width: wide enough for the 36px student-mode font
+               to render "HH:MM" without clipping the last digit. */
             text-align: center;
             font-family: var(--font-family);
             transition: border-color var(--transition-fast);
@@ -857,6 +862,8 @@
         /* Responsive Adjustments */
         @media (max-width: 768px) {
             .date-info {
+                /* Drop the grid for a simple vertical stack on phones. */
+                display: flex;
                 flex-direction: column;
                 align-items: flex-start;
             }
