@@ -557,7 +557,7 @@
             border: none;
             color: var(--color-error);
             cursor: pointer;
-            font-size: 16px;
+            font-size: 22px;
             padding: var(--space-1);
             flex-shrink: 0;
             align-self: center;
@@ -1217,6 +1217,114 @@
             cursor: default;
             pointer-events: none;
         }
+
+        /* === Time Adjust Buttons (Feature 4) ===
+           Fixed on the right edge of the viewport, vertically aligned with the
+           timer digits via JS (repositionTimeAdjustButtons). Together the two
+           buttons span exactly the rendered height of the timer display.
+           Only visible in teacher mode while the timer is running. */
+        .time-adjust-buttons {
+            position: fixed;
+            right: var(--space-5);
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            z-index: 10;
+        }
+        .time-adjust-btn {
+            width: 52px;
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius);
+            color: var(--color-text);
+            font-size: 22px;
+            font-weight: var(--font-weight-semibold);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--transition-fast);
+            user-select: none;
+            line-height: 1;
+            font-family: var(--font-family);
+            box-shadow: var(--shadow-sm);
+        }
+        .time-adjust-btn:hover {
+            background: var(--color-hover);
+            border-color: var(--color-text-muted);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+        .time-adjust-btn:active {
+            transform: translateY(0);
+            background: var(--color-hover);
+        }
+        @keyframes timerFlash {
+            0%   { opacity: 1; }
+            25%  { opacity: 0.35; }
+            75%  { opacity: 1; }
+            100% { opacity: 1; }
+        }
+        .timer-display.time-flash {
+            animation: timerFlash 0.35s ease-out;
+        }
+
+        /* === Info item inline edit (Feature 3) === */
+        .info-item.editing {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .info-edit-row {
+            display: flex;
+            gap: var(--space-2);
+            align-items: flex-start;
+        }
+        .info-edit-number {
+            width: 120px;
+            flex-shrink: 0;
+            font-size: 24px;
+            padding: var(--space-2);
+            border: 2px solid var(--color-primary-500);
+            border-radius: var(--radius);
+            font-family: var(--font-family);
+            background: var(--color-surface);
+            height: auto;
+        }
+        .info-edit-text {
+            flex: 1;
+            font-size: 24px;
+            padding: var(--space-2);
+            border: 2px solid var(--color-primary-500);
+            border-radius: var(--radius);
+            font-family: var(--font-family);
+            resize: vertical;
+            min-height: 2.5em;
+            background: var(--color-surface);
+            line-height: var(--line-height-normal);
+        }
+        .info-edit-actions {
+            display: flex;
+            gap: var(--space-2);
+            justify-content: flex-end;
+        }
+        .info-item .edit-btn {
+            opacity: 0;
+            transition: opacity var(--transition-base);
+            background: none;
+            border: none;
+            color: var(--color-primary-500);
+            cursor: pointer;
+            font-size: 22px;
+            padding: var(--space-1);
+            flex-shrink: 0;
+            align-self: center;
+        }
+        .info-item:hover .edit-btn {
+            opacity: 0.5;
+        }
+        .info-item .edit-btn:hover {
+            opacity: 1 !important;
+        }
     </style>
 </head>
 
@@ -1284,6 +1392,12 @@
                 class="bi bi-arrow-bar-up"></i></button>
         <button class="btn-small teacher-toggle" id="teacherToggleBtn" onclick="toggleTeacherMode()" title="Lehrer-Ansicht umschalten" aria-label="Lehrer-Ansicht umschalten"><i class="bi bi-gear"></i></button>
         <input type="file" id="fileInput" class="file-input" accept=".json" onchange="importData(event)">
+    </div>
+
+    <!-- Time Adjust Buttons: fixed right-side, visible in teacher mode while timer runs (Feature 4) -->
+    <div class="time-adjust-buttons teacher-only" id="timeAdjustButtons" style="display:none;">
+        <button class="time-adjust-btn" onclick="adjustTime(1)" title="+1 Minute" aria-label="+1 Minute zur Prüfungszeit hinzufügen">+1</button>
+        <button class="time-adjust-btn" onclick="adjustTime(-1)" title="−1 Minute" aria-label="−1 Minute von der Prüfungszeit abziehen">−1</button>
     </div>
 
     <!-- Custom Modal for messages -->
@@ -1364,6 +1478,8 @@
         // and the currently running phase index (-1 = main exam, 0+ = extension index).
         let zusatzzeiten = [];
         let zusatzzeitPhase = -1;
+        let teacherModeToggled = false; // true once the teacher has used the mode toggle
+        let editingInfoIndex = null;    // index of info item currently in inline-edit mode
 
         // Sanitize HTML: use DOMPurify if available, otherwise passthrough
         const sanitize = typeof DOMPurify !== 'undefined'
@@ -1420,10 +1536,14 @@
             document.getElementById('breakEndTime').addEventListener('change', validateBreakEndTime);
 
             adjustLayout();
+            repositionTimeAdjustButtons();
 
             window.addEventListener('resize', () => {
                 clearTimeout(resizeTimeout);
-                resizeTimeout = setTimeout(adjustLayout, 200);
+                resizeTimeout = setTimeout(() => {
+                    adjustLayout();
+                    repositionTimeAdjustButtons();
+                }, 200);
             });
         }
 
@@ -1595,6 +1715,8 @@
 
             isRunning = true;
             document.getElementById('startBtn').style.display = 'none';
+            updateTimeAdjustButtons();
+            repositionTimeAdjustButtons();
 
             // Nudge uninitiated teachers to toggle into student view after a
             // fresh start. Skip on resume-from-load to avoid pulsing on every
@@ -1693,13 +1815,19 @@
                 }
             }
 
-            if (!breakEndTimeSetByUser) { // Only auto-suggest if user hasn't manually set it
-                // Compute the maximum configured additional percentage (if any)
+            // Auto-suggest break end only during the main exam phase (phase -1).
+            // Calling updateEndTimes() on extension-phase transitions sets
+            // remainingSeconds to only the incremental slice — using that to
+            // derive the break end would push it too far into the future.
+            // Feature 1 formula: max(examEnd + 5 min, lastExtensionEnd + 3 min)
+            // → regular students always get >= 5 min; extended students >= 3 min.
+            if (!breakEndTimeSetByUser && zusatzzeitPhase === -1) {
                 const maxPct = zusatzzeiten.length ? Math.max(...zusatzzeiten) : 0;
-                const extraMinMax = Math.round(timerMinutes * maxPct / 100);
-
-                // Suggest break end = exam end + max extra minutes + 5 minutes
-                const suggestedBreakEnd = new Date(examEnd.getTime() + (extraMinMax + 5) * 60 * 1000);
+                const maxExtraMin = Math.round(timerMinutes * maxPct / 100);
+                const lastExtensionEnd = new Date(examEnd.getTime() + maxExtraMin * 60 * 1000);
+                const regularBreak  = new Date(examEnd.getTime() + 5 * 60 * 1000);
+                const extendedBreak = new Date(lastExtensionEnd.getTime() + 3 * 60 * 1000);
+                const suggestedBreakEnd = new Date(Math.max(regularBreak.getTime(), extendedBreak.getTime()));
                 document.getElementById('breakEndTime').value = suggestedBreakEnd.toLocaleTimeString('de-DE', {
                     hour: '2-digit',
                     minute: '2-digit',
@@ -1813,6 +1941,7 @@
 
             isRunning = false;
             zusatzzeitPhase = -1;
+            updateTimeAdjustButtons();
 
             document.getElementById('startBtn').style.display = 'inline-block';
             document.getElementById('timerDisplay').classList.remove('warning');
@@ -1895,6 +2024,14 @@
 
                 document.getElementById('questionNumber').value = '';
                 document.getElementById('questionText').value = '';
+
+                // Feature 2: auto-switch to student mode so the teacher doesn't
+                // need to click the toggle after entering each info item.
+                // Only fires if the teacher has already used the mode toggle —
+                // guaranteeing they know how to get back to teacher mode.
+                if (teacherModeToggled && document.body.classList.contains('teacher-mode')) {
+                    toggleTeacherMode();
+                }
             }
         }
 
@@ -1913,15 +2050,31 @@
             }
 
             // Render content with new "Aufg. X)" format
-            display.innerHTML = questionInfos.map((info, index) => `
-                <div class="info-item">
+            const isTeacherMode = document.body.classList.contains('teacher-mode');
+            display.innerHTML = questionInfos.map((info, index) => {
+                if (editingInfoIndex === index) {
+                    const escapedNum = info.number.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                    const escapedTxt = info.text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                    return `<div class="info-item editing">
+                        <div class="info-edit-row">
+                            <input class="info-edit-number" type="text" id="editNumber_${index}" value="${escapedNum}" placeholder="Aufg. Nr.">
+                            <textarea class="info-edit-text" id="editText_${index}" rows="3">${escapedTxt}</textarea>
+                        </div>
+                        <div class="info-edit-actions">
+                            <button class="btn btn-primary" style="font-size:var(--font-size-base);padding:var(--space-2) var(--space-4);" onclick="saveEditInfo(${index})">Speichern</button>
+                            <button class="btn-small" onclick="cancelEditInfo()">Abbrechen</button>
+                        </div>
+                    </div>`;
+                }
+                return `<div class="info-item">
                     <div class="info-question">Aufg. <b>${sanitize(info.number)}</b>)</div>
                     <div class="info-text">${sanitize(marked.parse(info.text))}</div>
+                    ${isTeacherMode ? `<button class="edit-btn" onclick="startEditInfo(${index})" title="Bearbeiten"><i class="bi bi-pencil"></i></button>` : ''}
                     <button class="delete-btn" onclick="deleteQuestionInfo(${index})" title="Entfernen">
                         <i class="bi bi-x"></i>
                     </button>
-                </div>
-            `).join('');
+                </div>`;
+            }).join('');
 
             // Adjust font size after content is rendered and height is set
             adjustInfoDisplayFontSize();
@@ -2001,9 +2154,11 @@
                 tempDiv.innerHTML = ''; // Clear content for new measurement
                 infoItems.forEach(item => {
                     const clonedItem = item.cloneNode(true);
-                    // Apply trial font sizes
-                    clonedItem.querySelector('.info-question').style.fontSize = `${mid}px`;
-                    clonedItem.querySelector('.info-text').style.fontSize = `${mid}px`;
+                    // Apply trial font sizes (null-safe: editing items have no .info-question/.info-text)
+                    const q = clonedItem.querySelector('.info-question');
+                    const t = clonedItem.querySelector('.info-text');
+                    if (q) q.style.fontSize = `${mid}px`;
+                    if (t) t.style.fontSize = `${mid}px`;
                     tempDiv.appendChild(clonedItem);
                 });
 
@@ -2019,8 +2174,10 @@
 
             // Apply the best fit font size to the actual elements
             infoItems.forEach(item => {
-                item.querySelector('.info-question').style.fontSize = `${bestFitSize}px`;
-                item.querySelector('.info-text').style.fontSize = `${bestFitSize}px`;
+                const q = item.querySelector('.info-question');
+                const t = item.querySelector('.info-text');
+                if (q) q.style.fontSize = `${bestFitSize}px`;
+                if (t) t.style.fontSize = `${bestFitSize}px`;
             });
 
             document.body.removeChild(tempDiv); // Clean up the temporary div
@@ -2262,6 +2419,8 @@
             totalQuestions = 0;
             zusatzzeiten = [];
             zusatzzeitPhase = -1;
+            teacherModeToggled = false;
+            editingInfoIndex = null;
 
             try {
                 localStorage.removeItem('examDashboard');
@@ -2301,6 +2460,7 @@
                 totalQuestions: totalQuestions,
                 zusatzzeiten: zusatzzeiten,
                 zusatzzeitPhase: zusatzzeitPhase,
+                teacherModeToggled: teacherModeToggled,
                 savedAt: Date.now()
             };
             try {
@@ -2353,6 +2513,7 @@
             examEndTimeString = data.examEndTimeString || '';
             zusatzzeiten    = Array.isArray(data.zusatzzeiten) ? data.zusatzzeiten : [];
             zusatzzeitPhase = typeof data.zusatzzeitPhase === 'number' ? data.zusatzzeitPhase : -1;
+            teacherModeToggled = data.teacherModeToggled || false;
 
             document.getElementById('breakEndTime').value = breakEndTimeManual;
             document.getElementById('examEndTime').textContent = examEndTimeString || '--:--';
@@ -2457,6 +2618,98 @@
 
         window.addEventListener('load', init);
 
+        function startEditInfo(index) {
+            editingInfoIndex = index;
+            updateInfoDisplay();
+            // Focus the number field so the teacher can edit immediately
+            setTimeout(() => {
+                const el = document.getElementById(`editNumber_${index}`);
+                if (el) el.focus();
+            }, 0);
+        }
+
+        function saveEditInfo(index) {
+            const numberEl = document.getElementById(`editNumber_${index}`);
+            const textEl   = document.getElementById(`editText_${index}`);
+            if (!numberEl || !textEl) return;
+            const newNumber = numberEl.value.trim();
+            const newText   = textEl.value.trim();
+            if (newNumber && newText) {
+                questionInfos[index] = { number: newNumber, text: newText };
+                questionInfos.sort((a, b) => {
+                    const aNum = parseFloat(a.number.replace(/[^\d.]/g, '')) || 0;
+                    const bNum = parseFloat(b.number.replace(/[^\d.]/g, '')) || 0;
+                    return aNum - bNum;
+                });
+            }
+            editingInfoIndex = null;
+            updateInfoDisplay();
+            saveToStorage();
+            if (teacherModeToggled && document.body.classList.contains('teacher-mode')) {
+                toggleTeacherMode();
+            }
+        }
+
+        function cancelEditInfo() {
+            editingInfoIndex = null;
+            updateInfoDisplay();
+        }
+
+        /**
+         * Adds or removes deltaMins minutes from the running exam timer.
+         * Cascades to: remaining time display, exam end time, break end
+         * (if not manually set), Nachteilsausgleich pill labels, progress bar.
+         */
+        function adjustTime(deltaMins) {
+            if (!isRunning) return;
+            const deltaSeconds = deltaMins * 60;
+            timerMinutes     = Math.max(1, timerMinutes + deltaMins);
+            remainingSeconds = Math.max(0, remainingSeconds + deltaSeconds);
+            totalSeconds     = Math.max(60, totalSeconds + deltaSeconds);
+
+            updateTimerDisplay();
+            updateProgressBar();
+            updateZusatzzeitDisplay(); // extension pill labels derive from timerMinutes
+            updateEndTimes();
+            saveToStorage();
+
+            // Brief flash on the timer digits to confirm the adjustment
+            const display = document.getElementById('timerDisplay');
+            if (display) {
+                display.classList.remove('time-flash');
+                void display.offsetWidth; // force reflow to restart animation
+                display.classList.add('time-flash');
+                setTimeout(() => display.classList.remove('time-flash'), 350);
+            }
+        }
+
+        /** Shows/hides the time-adjust button stack based on mode and running state. */
+        function updateTimeAdjustButtons() {
+            const el = document.getElementById('timeAdjustButtons');
+            if (!el) return;
+            const isTeacher = document.body.classList.contains('teacher-mode');
+            el.style.display = (isTeacher && isRunning) ? 'flex' : 'none';
+        }
+
+        /**
+         * Aligns the time-adjust button stack with the timer display element:
+         * sets top to match the timer's viewport position and sizes each button
+         * so both together equal the timer's rendered height.
+         */
+        function repositionTimeAdjustButtons() {
+            const buttons = document.getElementById('timeAdjustButtons');
+            const timerDisplay = document.getElementById('timerDisplay');
+            if (!buttons || !timerDisplay) return;
+            const rect = timerDisplay.getBoundingClientRect();
+            if (rect.height === 0) return;
+            const gap = 3; // matches CSS gap: 3px
+            const btnHeight = Math.floor((rect.height - gap) / 2);
+            buttons.style.top = `${rect.top}px`;
+            buttons.querySelectorAll('.time-adjust-btn').forEach(btn => {
+                btn.style.height = `${btnHeight}px`;
+            });
+        }
+
         function showMessage(title, message) {
             document.getElementById('modalTitle').textContent = title;
             document.getElementById('modalMessage').textContent = message;
@@ -2533,9 +2786,16 @@
          * hiding/showing the input row changes available height.
          */
         function toggleTeacherMode() {
+            teacherModeToggled = true;
             const wasTeacher = document.body.classList.contains('teacher-mode');
             document.body.classList.toggle('teacher-mode');
             const isTeacher = document.body.classList.contains('teacher-mode');
+
+            // Cancel any in-progress inline edit when leaving teacher mode
+            if (!isTeacher && editingInfoIndex !== null) {
+                editingInfoIndex = null;
+            }
+
             const timerDisplay = document.getElementById('timerDisplay');
             const totalEl = document.getElementById('progressTotal');
             if (timerDisplay) timerDisplay.setAttribute('contenteditable', isTeacher ? 'true' : 'false');
@@ -2546,6 +2806,8 @@
             // Re-render the pill row so the row hides in student view when no
             // extension is scheduled, and re-appears for teachers.
             updateZusatzzeitDisplay();
+            updateInfoDisplay(); // refresh edit-btn visibility
+            updateTimeAdjustButtons();
             adjustLayout();
 
             // Leaving teacher mode = the classroom view takes over. Request
