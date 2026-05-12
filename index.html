@@ -888,7 +888,7 @@
                 flex-direction: column;
                 gap: var(--space-3);
             }
-            .zusatzzeit-row {
+            .time-extension-row {
                 margin-bottom: 0;
                 align-self: center;
                 justify-content: center;
@@ -1094,7 +1094,7 @@
              past       – exhausted; dimmed, informational only
            Students see the row without available/× affordances, as a
            calm "who-is-still-writing" status indicator. */
-        .zusatzzeit-row {
+        .time-extension-row {
             /* Grid col 3, right-aligned: the 1fr side column constrains the
                pills to the right third of the timer row so they can never
                overlap the play button sitting to the right of the timer.
@@ -1112,20 +1112,20 @@
             justify-content: flex-end;
             max-width: 100%;
         }
-        .zusatzzeit-label {
+        .time-extension-label {
             font-size: 20px;
             color: var(--color-text-muted);
             font-weight: var(--font-weight-medium);
             white-space: nowrap;
         }
-        .zusatzzeit-pills {
+        .time-extension-pills {
             display: flex;
             gap: var(--space-2);
             flex-wrap: wrap;
             align-items: center;
             justify-content: flex-end;
         }
-        .zusatzzeit-pill {
+        .time-extension-pill {
             /* Horizontal pill: pct and min share a single text line so the
                whole pill has a clean baseline that lines up with the timer's
                baseline via the grid's align-items:baseline. */
@@ -1147,46 +1147,46 @@
                         opacity var(--transition-base),
                         box-shadow var(--transition-base);
         }
-        .zusatzzeit-pill .pct {
+        .time-extension-pill .pct {
             font-size: 30px;
             font-weight: var(--font-weight-semibold);
         }
-        .zusatzzeit-pill .min {
+        .time-extension-pill .min {
             font-size: 24px;
             font-weight: var(--font-weight-normal);
             opacity: 0.8;
             white-space: nowrap;
         }
-        .zusatzzeit-pill.available:hover,
-        .zusatzzeit-pill.available:focus-visible {
+        .time-extension-pill.available:hover,
+        .time-extension-pill.available:focus-visible {
             background: var(--color-hover);
             border-color: var(--color-text-muted);
             color: var(--color-text);
         }
-        .zusatzzeit-pill.pending,
-        .zusatzzeit-pill.active,
-        .zusatzzeit-pill.past {
+        .time-extension-pill.pending,
+        .time-extension-pill.active,
+        .time-extension-pill.past {
             background: var(--nab-bg);
             color: var(--nab-color);
             border-color: var(--nab-border);
         }
-        .zusatzzeit-pill.active {
+        .time-extension-pill.active {
             border-color: var(--nab-color);
             /* Double-ring so the active extension is unmistakable from across
                the classroom but still reads as a pill, not an alert. */
             box-shadow: 0 0 0 3px var(--nab-bg), 0 0 0 4px var(--nab-color);
             cursor: default;
         }
-        .zusatzzeit-pill.past {
+        .time-extension-pill.past {
             opacity: 0.3;
             cursor: default;
         }
-        .zusatzzeit-pill:disabled { cursor: default; }
+        .time-extension-pill:disabled { cursor: default; }
 
         /* × affordance on pending pills (teacher). Anchored to the pill's
            top-right corner so it doesn't change the pill's symmetric width.
            The whole pill still toggles off on click — icon is a visual hint. */
-        .zusatzzeit-pill-remove {
+        .time-extension-pill-remove {
             position: absolute;
             top: -6px;
             right: -6px;
@@ -1205,15 +1205,15 @@
             pointer-events: none;
             transition: opacity var(--transition-fast);
         }
-        .zusatzzeit-pill.pending:hover .zusatzzeit-pill-remove,
-        .zusatzzeit-pill.pending:focus-visible .zusatzzeit-pill-remove { opacity: 1; }
+        .time-extension-pill.pending:hover .time-extension-pill-remove,
+        .time-extension-pill.pending:focus-visible .time-extension-pill-remove { opacity: 1; }
 
         /* Student view: label + add-affordance pills + × hint hidden; every
            remaining pill becomes a non-interactive status badge. */
-        body:not(.teacher-mode) .zusatzzeit-label { visibility: hidden; }
-        body:not(.teacher-mode) .zusatzzeit-pill.available,
-        body:not(.teacher-mode) .zusatzzeit-pill-remove { display: none !important; }
-        body:not(.teacher-mode) .zusatzzeit-pill {
+        body:not(.teacher-mode) .time-extension-label { visibility: hidden; }
+        body:not(.teacher-mode) .time-extension-pill.available,
+        body:not(.teacher-mode) .time-extension-pill-remove { display: none !important; }
+        body:not(.teacher-mode) .time-extension-pill {
             cursor: default;
             pointer-events: none;
         }
@@ -1358,12 +1358,12 @@
                         <i class="bi bi-play-fill"></i></button>
                 </div>
                 <!-- Nachteilsausgleich pills (grid col 3, right-aligned).
-                     Pills are rendered by updateZusatzzeitDisplay(); each pill
+                     Pills are rendered by updateTimeExtensionDisplay(); each pill
                      is both the toggle control (teacher) and the status badge
                      (teacher + student). -->
-                <div class="zusatzzeit-row" id="zusatzzeitRow">
-                    <span class="zusatzzeit-label">Nachteilsausgleich:</span>
-                    <div class="zusatzzeit-pills" id="zusatzzeitPills"></div>
+                <div class="time-extension-row" id="timeExtensionRow">
+                    <span class="time-extension-label">Nachteilsausgleich:</span>
+                    <div class="time-extension-pills" id="timeExtensionPills"></div>
                 </div>
             </div>
             <div class="progress-bar-container" id="progressBarContainer">
@@ -1476,8 +1476,8 @@
         let resizeTimeout;
         // Nachteilsausgleich: sorted array of percentage values (e.g. [10, 25])
         // and the currently running phase index (-1 = main exam, 0+ = extension index).
-        let zusatzzeiten = [];
-        let zusatzzeitPhase = -1;
+        let timeExtensions = [];
+        let timeExtensionPhase = -1;
         let teacherModeToggled = false; // true once the teacher has used the mode toggle
         let editingInfoIndex = null;    // index of info item currently in inline-edit mode
 
@@ -1488,20 +1488,20 @@
 
         // Supported Nachteilsausgleich percentages, sorted ascending — every
         // consumer (pill row, phase transitions) assumes this ordering.
-        const ZUSATZZEIT_VALUES = [10, 15, 20, 25, 50];
+        const TIME_EXTENSION_VALUES = [10, 15, 20, 25, 50];
 
         // Calm, accessible colour palette for Nachteilsausgleich extensions.
         // main  – text / active border; light – pill background; border – resting border.
         // Spread across the hue wheel so adjacent percentages are never confused.
-        const ZUSATZZEIT_COLORS = {
+        const TIME_EXTENSION_COLORS = {
             10: { main: '#e67e22', light: '#fef3e2', border: '#d4680e' },
             15: { main: '#16a085', light: '#e8f8f5', border: '#0e8a72' },
             20: { main: '#8e44ad', light: '#f5eef8', border: '#7d3c98' },
             25: { main: '#2471a3', light: '#eaf2fb', border: '#1a5276' },
             50: { main: '#b03a2e', light: '#fdedec', border: '#922b21' },
         };
-        function getZusatzzeitColor(pct) {
-            return ZUSATZZEIT_COLORS[pct] || { main: '#7f8c8d', light: '#f2f3f4', border: '#6c7a7d' };
+        function getTimeExtensionColor(pct) {
+            return TIME_EXTENSION_COLORS[pct] || { main: '#7f8c8d', light: '#f2f3f4', border: '#6c7a7d' };
         }
 
 
@@ -1532,7 +1532,7 @@
             updateInfoDisplay();
             updateTimerDisplay();
             updateProgressBar();
-            updateZusatzzeitDisplay();
+            updateTimeExtensionDisplay();
             document.getElementById('breakEndTime').addEventListener('change', validateBreakEndTime);
 
             adjustLayout();
@@ -1636,7 +1636,7 @@
                     // input reverts the display instead of silently ending
                     // or mutating the timer.
                     if (!isNaN(value) && value >= 0 && value <= 300) {
-                        if (zusatzzeitPhase >= 0) {
+                        if (timeExtensionPhase >= 0) {
                             // In an extension phase, totalSeconds is frozen at
                             // the main-exam total and effectiveTotal is derived
                             // from timerMinutes + pct. Mutating totalSeconds
@@ -1653,7 +1653,7 @@
                         updateProgressBar();
                     }
                     updateTimerDisplay();
-                    updateZusatzzeitDisplay();
+                    updateTimeExtensionDisplay();
                 } else {
                     // Empty or invalid: revert to the previous timerMinutes
                     // rather than auto-injecting 30 (which was surprising).
@@ -1663,7 +1663,7 @@
                         remainingSeconds = totalSeconds;
                     }
                     updateTimerDisplay();
-                    updateZusatzzeitDisplay(); // chip minutes derive from timerMinutes
+                    updateTimeExtensionDisplay(); // chip minutes derive from timerMinutes
                 }
                 saveToStorage();
             });
@@ -1709,7 +1709,7 @@
             if (!isResumeFromLoad) {
                 totalSeconds = timerMinutes * 60;
                 remainingSeconds = totalSeconds;
-                zusatzzeitPhase = -1;
+                timeExtensionPhase = -1;
             }
             updateEndTimes();
 
@@ -1808,8 +1808,8 @@
             // Update header label to identify which group finishes at this time.
             const examEndLabel = document.getElementById('examEndLabel');
             if (examEndLabel) {
-                if (isRunning && zusatzzeitPhase >= 0 && zusatzzeitPhase < zusatzzeiten.length) {
-                    examEndLabel.textContent = `Ende +${zusatzzeiten[zusatzzeitPhase]}%:`;
+                if (isRunning && timeExtensionPhase >= 0 && timeExtensionPhase < timeExtensions.length) {
+                    examEndLabel.textContent = `Ende +${timeExtensions[timeExtensionPhase]}%:`;
                 } else {
                     examEndLabel.textContent = 'Ende Prüfung:';
                 }
@@ -1821,8 +1821,8 @@
             // derive the break end would push it too far into the future.
             // Feature 1 formula: max(examEnd + 5 min, lastExtensionEnd + 3 min)
             // → regular students always get >= 5 min; extended students >= 3 min.
-            if (!breakEndTimeSetByUser && zusatzzeitPhase === -1) {
-                const maxPct = zusatzzeiten.length ? Math.max(...zusatzzeiten) : 0;
+            if (!breakEndTimeSetByUser && timeExtensionPhase === -1) {
+                const maxPct = timeExtensions.length ? Math.max(...timeExtensions) : 0;
                 const maxExtraMin = Math.round(timerMinutes * maxPct / 100);
                 const lastExtensionEnd = new Date(examEnd.getTime() + maxExtraMin * 60 * 1000);
                 const regularBreak  = new Date(examEnd.getTime() + 5 * 60 * 1000);
@@ -1899,14 +1899,14 @@
          * phases (including the last extension) are exhausted.
          */
         function timerEnded() {
-            const prevPhase = zusatzzeitPhase;
+            const prevPhase = timeExtensionPhase;
             const nextPhase = prevPhase + 1;
 
-            if (nextPhase < zusatzzeiten.length) {
+            if (nextPhase < timeExtensions.length) {
                 // ── Transition to next extension phase — keep interval running ──
-                zusatzzeitPhase = nextPhase;
-                const currentPct = zusatzzeiten[zusatzzeitPhase];
-                const prevPct    = prevPhase >= 0 ? zusatzzeiten[prevPhase] : 0;
+                timeExtensionPhase = nextPhase;
+                const currentPct = timeExtensions[timeExtensionPhase];
+                const prevPct    = prevPhase >= 0 ? timeExtensions[prevPhase] : 0;
                 // Remaining seconds = only the incremental extra for this group.
                 remainingSeconds = Math.round(timerMinutes * 60 * (currentPct - prevPct) / 100);
 
@@ -1917,13 +1917,13 @@
                     title = 'Reguläre Prüfungszeit abgelaufen!';
                     msg   = 'Alle ohne Nachteilsausgleich bitte jetzt aufhören.';
                 } else {
-                    title = `+${zusatzzeiten[prevPhase]}% Nachteilsausgleich \u2013 Zeit abgelaufen!`;
-                    msg   = `Alle mit ${zusatzzeiten[prevPhase]}% Nachteilsausgleich bitte jetzt aufhören.`;
+                    title = `+${timeExtensions[prevPhase]}% Nachteilsausgleich \u2013 Zeit abgelaufen!`;
+                    msg   = `Alle mit ${timeExtensions[prevPhase]}% Nachteilsausgleich bitte jetzt aufhören.`;
                 }
                 showMessage(title, msg);
 
                 updateTimerDisplay();       // picks up new colour
-                updateZusatzzeitDisplay();  // marks new chip as active
+                updateTimeExtensionDisplay();  // marks new chip as active
                 updateProgressBar();
                 updateEndTimes();           // shows end time for the new group
                 saveToStorage();
@@ -1932,7 +1932,7 @@
 
             // ── All phases complete ──
             // Capture prevPhase before resetting so the final message is correct.
-            const finalPrevPhase = zusatzzeitPhase;
+            const finalPrevPhase = timeExtensionPhase;
 
             clearInterval(timerInterval);
 
@@ -1940,7 +1940,7 @@
             updateProgressBar();
 
             isRunning = false;
-            zusatzzeitPhase = -1;
+            timeExtensionPhase = -1;
             updateTimeAdjustButtons();
 
             document.getElementById('startBtn').style.display = 'inline-block';
@@ -1956,11 +1956,11 @@
                 finalMsg   = 'Die Prüfungszeit ist beendet. Gut gemacht!';
             } else {
                 finalTitle = 'Zeit abgelaufen!';
-                finalMsg   = `Alle mit ${zusatzzeiten[finalPrevPhase]}% Nachteilsausgleich bitte jetzt aufhören. Die Prüfung ist insgesamt beendet.`;
+                finalMsg   = `Alle mit ${timeExtensions[finalPrevPhase]}% Nachteilsausgleich bitte jetzt aufhören. Die Prüfung ist insgesamt beendet.`;
             }
             showMessage(finalTitle, finalMsg);
             clearEndTimes();
-            updateZusatzzeitDisplay();
+            updateTimeExtensionDisplay();
             saveToStorage();
         }
 
@@ -2206,12 +2206,12 @@
             let expectedQuestion = 0;
             if (isRunning && totalSeconds > 0 && totalQuestions > 0) {
                 let elapsedSeconds, effectiveTotalSeconds;
-                if (zusatzzeitPhase >= 0 && zusatzzeitPhase < zusatzzeiten.length) {
+                if (timeExtensionPhase >= 0 && timeExtensionPhase < timeExtensions.length) {
                     // During an extension phase: scale progress to that group's full duration.
                     // effectiveTotalSeconds = base + current extension %.
                     // remainingSeconds counts down only the incremental extension slice,
                     // so elapsed = effectiveTotal - remaining gives the correct overall position.
-                    const currentPct = zusatzzeiten[zusatzzeitPhase];
+                    const currentPct = timeExtensions[timeExtensionPhase];
                     effectiveTotalSeconds = Math.round(timerMinutes * 60 * (1 + currentPct / 100));
                     elapsedSeconds = effectiveTotalSeconds - remainingSeconds;
                 } else {
@@ -2312,16 +2312,16 @@
          * When a toggle occurs mid-exam, the auto-suggested break end is
          * re-derived so it always sits 5 min after the longest group finishes.
          */
-        function toggleZusatzzeit(pct) {
-            const idx = zusatzzeiten.indexOf(pct);
+        function toggleTimeExtension(pct) {
+            const idx = timeExtensions.indexOf(pct);
             if (idx !== -1) {
-                if (zusatzzeitPhase >= 0 && idx <= zusatzzeitPhase) return;
-                zusatzzeiten.splice(idx, 1);
+                if (timeExtensionPhase >= 0 && idx <= timeExtensionPhase) return;
+                timeExtensions.splice(idx, 1);
             } else {
-                zusatzzeiten.push(pct);
-                zusatzzeiten.sort((a, b) => a - b);
+                timeExtensions.push(pct);
+                timeExtensions.sort((a, b) => a - b);
             }
-            updateZusatzzeitDisplay();
+            updateTimeExtensionDisplay();
             // Re-run end-time calc so the auto-suggested break end reflects the
             // (possibly) new longest extension. No-op when the teacher has set
             // the break end manually — updateEndTimes() guards on that flag.
@@ -2334,25 +2334,25 @@
          * One pill per supported percentage; the visual state (available /
          * pending / active / past) tells the rest of the story.
          */
-        function updateZusatzzeitDisplay() {
-            const row = document.getElementById('zusatzzeitRow');
-            const pills = document.getElementById('zusatzzeitPills');
+        function updateTimeExtensionDisplay() {
+            const row = document.getElementById('timeExtensionRow');
+            const pills = document.getElementById('timeExtensionPills');
             if (!row || !pills) return;
 
             // Student view collapses the whole row when nothing is scheduled
             // so the dashboard stays calm for regular exams. Teacher always
             // sees the row as an entry point.
             const isTeacher = document.body.classList.contains('teacher-mode');
-            const hasAny = zusatzzeiten.length > 0;
+            const hasAny = timeExtensions.length > 0;
             row.style.display = (!isTeacher && !hasAny) ? 'none' : 'flex';
 
-            pills.innerHTML = ZUSATZZEIT_VALUES.map(pct => {
-                const c = getZusatzzeitColor(pct);
+            pills.innerHTML = TIME_EXTENSION_VALUES.map(pct => {
+                const c = getTimeExtensionColor(pct);
                 const extraMin = Math.round(timerMinutes * pct / 100);
-                const idx = zusatzzeiten.indexOf(pct);
+                const idx = timeExtensions.indexOf(pct);
                 const isAdded   = idx !== -1;
-                const isActive  = isAdded && isRunning && idx === zusatzzeitPhase;
-                const isPast    = isAdded && zusatzzeitPhase >= 0 && idx < zusatzzeitPhase;
+                const isActive  = isAdded && isRunning && idx === timeExtensionPhase;
+                const isPast    = isAdded && timeExtensionPhase >= 0 && idx < timeExtensionPhase;
                 const isPending = isAdded && !isActive && !isPast;
 
                 let state, aria;
@@ -2364,13 +2364,13 @@
                 const clickable = state === 'available' || state === 'pending';
                 const styleVars = `--nab-color:${c.main};--nab-bg:${c.light};--nab-border:${c.border};`;
                 const removeHint = (state === 'pending')
-                    ? `<span class="zusatzzeit-pill-remove" aria-hidden="true"><i class="bi bi-x"></i></span>`
+                    ? `<span class="time-extension-pill-remove" aria-hidden="true"><i class="bi bi-x"></i></span>`
                     : '';
 
                 return `<button type="button"
-                                class="zusatzzeit-pill ${state}"
+                                class="time-extension-pill ${state}"
                                 style="${styleVars}"
-                                ${clickable ? `onclick="toggleZusatzzeit(${pct})"` : 'disabled'}
+                                ${clickable ? `onclick="toggleTimeExtension(${pct})"` : 'disabled'}
                                 aria-label="${aria}"
                                 aria-pressed="${isAdded}">
                             <span class="pct">+${pct} %</span>
@@ -2391,8 +2391,8 @@
             const label   = document.querySelector('.timer-number-wrap .timer-label');
             if (!display) return;
 
-            const inExtension = isRunning && zusatzzeitPhase >= 0 && zusatzzeitPhase < zusatzzeiten.length;
-            const color = inExtension ? getZusatzzeitColor(zusatzzeiten[zusatzzeitPhase]).main : '';
+            const inExtension = isRunning && timeExtensionPhase >= 0 && timeExtensionPhase < timeExtensions.length;
+            const color = inExtension ? getTimeExtensionColor(timeExtensions[timeExtensionPhase]).main : '';
 
             display.style.color = color;
             if (unit)  unit.style.color  = color;
@@ -2417,8 +2417,8 @@
             breakEndTimeManual = '';
             breakEndTimeSetByUser = false;
             totalQuestions = 0;
-            zusatzzeiten = [];
-            zusatzzeitPhase = -1;
+            timeExtensions = [];
+            timeExtensionPhase = -1;
             teacherModeToggled = false;
             editingInfoIndex = null;
 
@@ -2441,7 +2441,7 @@
             updateTimerDisplay();
             updateInfoDisplay();
             updateProgressBar();
-            updateZusatzzeitDisplay();
+            updateTimeExtensionDisplay();
         }
 
         /**
@@ -2458,8 +2458,8 @@
                 breakEndTimeSetByUser: breakEndTimeSetByUser,
                 examEndTimeString: examEndTimeString,
                 totalQuestions: totalQuestions,
-                zusatzzeiten: zusatzzeiten,
-                zusatzzeitPhase: zusatzzeitPhase,
+                timeExtensions: timeExtensions,
+                timeExtensionPhase: timeExtensionPhase,
                 teacherModeToggled: teacherModeToggled,
                 savedAt: Date.now()
             };
@@ -2511,8 +2511,8 @@
             breakEndTimeManual = data.breakEndTimeManual || '';
             breakEndTimeSetByUser = data.breakEndTimeSetByUser || false;
             examEndTimeString = data.examEndTimeString || '';
-            zusatzzeiten    = Array.isArray(data.zusatzzeiten) ? data.zusatzzeiten : [];
-            zusatzzeitPhase = typeof data.zusatzzeitPhase === 'number' ? data.zusatzzeitPhase : -1;
+            timeExtensions    = Array.isArray(data.timeExtensions) ? data.timeExtensions : [];
+            timeExtensionPhase = typeof data.timeExtensionPhase === 'number' ? data.timeExtensionPhase : -1;
             teacherModeToggled = data.teacherModeToggled || false;
 
             document.getElementById('breakEndTime').value = breakEndTimeManual;
@@ -2527,7 +2527,7 @@
             } else {
                 updateTimerDisplay();
             }
-            updateZusatzzeitDisplay();
+            updateTimeExtensionDisplay();
         }
 
         /**
@@ -2543,8 +2543,8 @@
                 breakEndTimeManual: breakEndTimeManual,
                 examEndTimeString: examEndTimeString,
                 totalQuestions: totalQuestions,
-                zusatzzeiten: zusatzzeiten,
-                zusatzzeitPhase: zusatzzeitPhase,
+                timeExtensions: timeExtensions,
+                timeExtensionPhase: timeExtensionPhase,
                 exportDate: new Date().toISOString()
             };
 
@@ -2583,8 +2583,8 @@
                             document.getElementById('breakEndTime').value = breakEndTimeManual;
                             document.getElementById('examEndTime').textContent = examEndTimeString || '--:--';
 
-                            zusatzzeiten    = Array.isArray(data.zusatzzeiten) ? data.zusatzzeiten : [];
-                            zusatzzeitPhase = typeof data.zusatzzeitPhase === 'number' ? data.zusatzzeitPhase : -1;
+                            timeExtensions    = Array.isArray(data.timeExtensions) ? data.timeExtensions : [];
+                            timeExtensionPhase = typeof data.timeExtensionPhase === 'number' ? data.timeExtensionPhase : -1;
 
                             clearInterval(timerInterval);
 
@@ -2597,7 +2597,7 @@
                         }
                         saveToStorage();
                         updateInfoDisplay(); // Refresh info display (calls font size adjustment)
-                        updateZusatzzeitDisplay();
+                        updateTimeExtensionDisplay();
                         showMessage('Import Erfolgreich', 'Die Daten wurden erfolgreich importiert.');
                     } catch (error) {
                         showMessage('Import Fehler', 'Fehler beim Importieren der Datei: ' + error.message);
@@ -2669,7 +2669,7 @@
 
             updateTimerDisplay();
             updateProgressBar();
-            updateZusatzzeitDisplay(); // extension pill labels derive from timerMinutes
+            updateTimeExtensionDisplay(); // extension pill labels derive from timerMinutes
             updateEndTimes();
             saveToStorage();
 
@@ -2805,7 +2805,7 @@
             if (teacherBtn) teacherBtn.classList.remove('nudge');
             // Re-render the pill row so the row hides in student view when no
             // extension is scheduled, and re-appears for teachers.
-            updateZusatzzeitDisplay();
+            updateTimeExtensionDisplay();
             updateInfoDisplay(); // refresh edit-btn visibility
             updateTimeAdjustButtons();
             adjustLayout();
